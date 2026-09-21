@@ -8,8 +8,8 @@
 ## Eerste uitrol
 
 1. Database en gebruiker aanmaken (zie deployment).
-2. `npm run db:migrate` — voert `20260921000000_init` uit. **Deze migratie is nog niet tegen een echte MySQL getest**; draai hem eerst op een lege database en controleer met `npx prisma migrate status`.
-3. `npm run db:seed` (rollen/permissies/instellingen; seed volgt in Fase C-afronding).
+2. `npm run db:migrate` — voert `20260921000000_init` uit (lokaal geverifieerd op MariaDB 11.8.2). Controleer daarna met `npx prisma migrate status`.
+3. `npm run db:seed` (rollen, permissies en instellingen; geen persoonsgegevens).
 4. Inloggen met de eerste toegestane gebruiker → wordt ADMIN.
 
 ## Back-up en herstel

@@ -32,4 +32,4 @@ Bron van waarheid: `prisma/schema.prisma`. Migraties in `prisma/migrations/` (Gi
 3. Beoordeel de SQL op destructieve statements (`DROP`, kolomverkleining). Destructief → expand/contract in meerdere releases.
 4. `npm run db:backup`, daarna `npm run db:migrate` (`prisma migrate deploy`).
 
-De initiële migratie `20260921000000_init` is gegenereerd met `prisma migrate diff` en **nog niet uitgevoerd tegen een echte MySQL-database**. Dit moet vóór de eerste release gebeuren (zie runbook).
+De initiële migratie `20260921000000_init` is gegenereerd met `prisma migrate diff` en op 2026-09-21 succesvol toegepast op een lokale **MariaDB 11.8.2**: 26 tabellen, geen schema-drift, seed geslaagd. De productieserver draait MariaDB; de exacte serverversie moet nog worden vergeleken met 11.8.
