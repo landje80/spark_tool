@@ -1,0 +1,56 @@
+// Alle gebruikersgerichte teksten staan hier. Nieuwe taal = nieuw catalogusbestand + registratie in index.ts.
+export const nl = {
+  app: { name: 'Spark Tool', tagline: 'Leads en content voor Spark' },
+  nav: {
+    dashboard: 'Dashboard',
+    prospects: 'Prospects',
+    tasks: 'Taken',
+    customers: 'Klanten',
+    content: 'Content',
+    settings: 'Instellingen',
+    logout: 'Uitloggen',
+    skip: 'Direct naar inhoud',
+    main: 'Hoofdnavigatie',
+  },
+  login: {
+    title: 'Inloggen',
+    intro: 'Log in met je Juvion Microsoft-account.',
+    button: 'Inloggen met Microsoft',
+    denied: 'Je account heeft geen toegang tot Spark Tool. Neem contact op met een beheerder.',
+  },
+  common: {
+    loading: 'Laden…',
+    error: 'Er ging iets mis. Probeer het opnieuw.',
+    save: 'Opslaan',
+    cancel: 'Annuleren',
+  },
+  status: {
+    NEW: 'Nieuw',
+    IN_REVIEW: 'Te beoordelen',
+    OUTREACH_PREPARED: 'Outreach voorbereid',
+    EMAILED: 'Gemaild',
+    REPLY_RECEIVED: 'Reactie ontvangen',
+    REPLY_NOT_INTERESTED: 'Reactie - geen interesse',
+    CALLED: 'Gebeld',
+    FOLLOW_UP: 'Op te volgen',
+    QUALIFIED: 'Gekwalificeerd',
+    NOT_INTERESTED: 'Niet geïnteresseerd',
+    CUSTOMER: 'Klant geworden',
+    ARCHIVED: 'Gearchiveerd',
+    INVALID: 'Ongeldig',
+    DUPLICATE: 'Dubbel',
+  },
+  errors: {
+    VALIDATION_ERROR: 'De ingevoerde gegevens zijn niet geldig.',
+    UNAUTHENTICATED: 'Je bent niet ingelogd.',
+    FORBIDDEN: 'Je hebt hier geen rechten voor.',
+    NOT_FOUND: 'Niet gevonden.',
+    CONFLICT: 'Deze actie conflicteert met de huidige situatie.',
+    INVALID_TRANSITION: 'Deze statuswijziging is niet toegestaan.',
+    SUPPRESSED: 'Naar dit adres mag niet worden gemaild.',
+    RATE_LIMITED: 'Te veel verzoeken. Probeer het later opnieuw.',
+    INTERNAL: 'Er ging iets mis aan onze kant.',
+  },
+} as const;
+
+export type Messages = typeof nl;

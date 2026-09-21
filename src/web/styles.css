@@ -1,0 +1,235 @@
+@import '@fontsource/bebas-neue/400.css';
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/700.css';
+
+/* Design tokens: NiceNext huisstijl (oranje #ff6a1a, donkerbruin #241a12, crème #faf6f1) */
+:root {
+  --c-brand: #ff6a1a;
+  --c-brand-strong: #e84d00;
+  --c-ink: #241a12;
+  --c-ink-soft: #5c5249;
+  --c-muted: #7c7068;
+  --c-bg: #faf6f1;
+  --c-surface: #ffffff;
+  --c-surface-alt: #f1e9e0;
+  --c-line: #e3d8cc;
+  --c-ok: #2f9e44;
+  --c-info: #1864ab;
+  --c-danger: #b3261e;
+  --radius: 12px;
+  --tap: 44px;
+  --font-head: 'Bebas Neue', Impact, sans-serif;
+  --font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: 400 1rem/1.5 var(--font-body);
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-head);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  margin: 0 0 var(--space-3);
+}
+h1 {
+  font-size: 2.25rem;
+}
+h2 {
+  font-size: 1.5rem;
+}
+a {
+  color: var(--c-brand-strong);
+}
+
+:focus-visible {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--c-brand);
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: -100px;
+  background: var(--c-ink);
+  color: #fff;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  z-index: 100;
+}
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+/* Shell: mobiel eerst — bottom-navigatie; vanaf 900px zijbalk */
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  background: var(--c-ink);
+  color: var(--c-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  padding-top: max(var(--space-2), env(safe-area-inset-top));
+}
+.brand {
+  font-family: var(--font-head);
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+}
+.brand span {
+  color: var(--c-brand);
+}
+.content {
+  flex: 1;
+  padding: var(--space-4);
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+.nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  background: var(--c-ink);
+  display: flex;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+.nav a {
+  flex: 1;
+  min-height: 56px;
+  min-width: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #d9cfc5;
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: var(--space-2);
+}
+.nav a[aria-current='page'] {
+  color: #fff;
+  box-shadow: inset 0 3px 0 var(--c-brand);
+}
+@media (min-width: 900px) {
+  .shell {
+    flex-direction: row;
+  }
+  .topbar {
+    display: none;
+  }
+  .nav {
+    position: sticky;
+    top: 0;
+    inset: auto;
+    height: 100dvh;
+    width: 232px;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: var(--space-6) var(--space-3);
+    gap: var(--space-1);
+  }
+  .nav a {
+    flex: none;
+    justify-content: flex-start;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    padding: var(--space-3) var(--space-4);
+  }
+  .nav a[aria-current='page'] {
+    background: rgb(255 106 26 / 0.18);
+    box-shadow: none;
+  }
+  .content {
+    padding: var(--space-8);
+  }
+}
+.nav .brand {
+  display: none;
+}
+@media (min-width: 900px) {
+  .nav .brand {
+    display: block;
+    padding: 0 var(--space-4) var(--space-6);
+    color: var(--c-bg);
+  }
+}
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+.btn {
+  min-height: var(--tap);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius);
+  border: 2px solid var(--c-ink);
+  background: var(--c-brand);
+  color: var(--c-ink);
+  font: 700 1rem var(--font-body);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.btn:hover {
+  background: var(--c-brand-strong);
+}
+.btn--ghost {
+  background: transparent;
+  color: inherit;
+  border-color: currentColor;
+}
+.muted {
+  color: var(--c-ink-soft);
+}
+.center-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+}
+.alert {
+  border-left: 4px solid var(--c-danger);
+  background: #fdecea;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

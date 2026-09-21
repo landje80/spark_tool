@@ -1,0 +1,697 @@
+// Spark Tool - databasemodel (MySQL). Zie docs/architecture/database-model.md
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALES
+  CONTENT_EDITOR
+  VIEWER
+}
+
+enum ProspectStatus {
+  NEW
+  IN_REVIEW
+  OUTREACH_PREPARED
+  EMAILED
+  REPLY_RECEIVED
+  REPLY_NOT_INTERESTED
+  CALLED
+  FOLLOW_UP
+  QUALIFIED
+  NOT_INTERESTED
+  CUSTOMER
+  ARCHIVED
+  INVALID
+  DUPLICATE
+}
+
+enum Province {
+  OVERIJSSEL
+  DRENTHE
+  GELDERLAND
+  FLEVOLAND
+  OTHER
+}
+
+enum Confidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SourceType {
+  WEBSITE
+  LINKEDIN
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  DIRECTORY
+  NEWS
+  OTHER
+}
+
+enum SocialPlatform {
+  LINKEDIN
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+}
+
+enum RunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum ActivityType {
+  CREATED
+  STATUS_CHANGED
+  FIELD_CHANGED
+  NOTE
+  CALL
+  EMAIL_SENT
+  REPLY_RECEIVED
+  TASK_CREATED
+  MERGED
+  ARCHIVED
+  RESTORED
+  CONVERTED_TO_CUSTOMER
+  EXPORTED
+  ANONYMIZED
+}
+
+enum DraftStatus {
+  DRAFT
+  APPROVED
+  SENT
+  DISCARDED
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  BOUNCED
+  SPAM_COMPLAINT
+  FAILED
+}
+
+enum TaskType {
+  CALL
+  EMAIL
+  FOLLOW_UP
+  REVIEW
+  OTHER
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  DEAD
+}
+
+enum SuppressionReason {
+  OPT_OUT
+  HARD_BOUNCE
+  SPAM_COMPLAINT
+  MANUAL
+  DELETED_PROSPECT
+}
+
+enum CandidateReviewStatus {
+  PENDING
+  ACCEPTED_AS_NEW
+  MERGED
+  REJECTED
+}
+
+enum CustomerStatus {
+  ONBOARDING
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum SubmissionStatus {
+  RECEIVED
+  TECHNICAL_CHECK
+  PROCESSING
+  DRAFT_READY
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  READY_TO_PUBLISH
+  PUBLISHED
+  ARCHIVED
+  FAILED
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+}
+
+enum AssetRole {
+  ORIGINAL
+  DERIVATIVE
+  THUMBNAIL
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  SKIPPED
+  ERROR
+}
+
+enum PublicationPlatform {
+  LINKEDIN
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+}
+
+enum PublicationStatus {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  PUBLISHED
+  DISCARDED
+}
+
+// ───────────────────────── Gebruikers, rollen en sessies ─────────────────────────
+
+model User {
+  id          String    @id @default(cuid())
+  entraOid    String    @unique @db.VarChar(64)
+  tenantId    String    @db.VarChar(64)
+  name        String    @db.VarChar(200)
+  email       String    @unique @db.VarChar(320)
+  role        Role      @default(VIEWER)
+  active      Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  ownedProspects Prospect[]      @relation("ProspectOwner")
+  tasks          Task[]
+  activities     ProspectActivity[]
+  approvedDrafts OutreachDraft[]
+  auditLogs      AuditLog[]
+
+  @@index([role, active])
+}
+
+/// Rolrechten zijn data, zodat beheerders ze kunnen bijstellen. Seed levert de standaardset.
+model RolePermission {
+  role       Role
+  permission String @db.VarChar(64)
+
+  @@id([role, permission])
+}
+
+/// Server-side sessies (persistent, niet in werkgeheugen). Sessie-id is een SHA-256 hash.
+model Session {
+  id        String   @id @db.VarChar(64)
+  userId    String?
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model AppSetting {
+  key       String   @id @db.VarChar(100)
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────────── CRM ─────────────────────────
+
+model Prospect {
+  id                  String         @id @default(cuid())
+  companyName         String         @db.VarChar(300)
+  normalizedName      String         @db.VarChar(300)
+  website             String?        @db.VarChar(500)
+  domain              String?        @unique @db.VarChar(255)
+  phone               String?        @db.VarChar(40)
+  kvkNumber           String?        @unique @db.VarChar(8)
+  city                String?        @db.VarChar(120)
+  province            Province       @default(OTHER)
+  industry            String?        @db.VarChar(120)
+  employeesMin        Int?
+  employeesMax        Int?
+  employeesRationale  String?        @db.Text
+  employeesSourceUrl  String?        @db.VarChar(1000)
+  fitScore            Int?
+  fitRationale        String?        @db.Text
+  outreachAngle       String?        @db.Text
+  confidence          Confidence?
+  contactEmail        String?        @db.VarChar(320)
+  status              ProspectStatus @default(NEW)
+  ownerId             String?
+  nextActionAt        DateTime?
+  notInterestedReason String?        @db.Text
+  notes               String?        @db.Text
+  firstFoundAt        DateTime       @default(now())
+  lastVerifiedAt      DateTime?
+  foundByRunId        String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  archivedAt          DateTime?
+  anonymizedAt        DateTime?
+
+  owner       User?              @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  foundByRun  LeadGenerationRun? @relation(fields: [foundByRunId], references: [id], onDelete: SetNull)
+  sources     ProspectSource[]
+  socials     SocialProfile[]
+  activities  ProspectActivity[]
+  drafts      OutreachDraft[]
+  emails      EmailMessage[]
+  tasks       Task[]
+  customer    Customer?
+
+  @@unique([normalizedName, city])
+  @@index([status, ownerId])
+  @@index([nextActionAt])
+  @@index([province, city])
+  @@index([industry])
+  @@index([createdAt])
+  @@index([normalizedName])
+}
+
+model ProspectSource {
+  id          String     @id @default(cuid())
+  prospectId  String
+  type        SourceType
+  url         String     @db.VarChar(1000)
+  title       String?    @db.VarChar(300)
+  checkedAt   DateTime
+  observation String?    @db.Text
+  confidence  Confidence @default(MEDIUM)
+
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+}
+
+model SocialProfile {
+  id           String         @id @default(cuid())
+  prospectId   String
+  platform     SocialPlatform
+  url          String         @db.VarChar(500)
+  accountName  String?        @db.VarChar(200)
+  checkedAt    DateTime?
+  observations Json?
+
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// Een social-URL mag maar bij één prospect horen (duplicaatdetectie).
+  @@unique([url])
+  @@index([prospectId])
+}
+
+model LeadGenerationRun {
+  id                String    @id @default(cuid())
+  /// Idempotentiesleutel, bv. "2026-09-21" voor de dagelijkse run.
+  runKey            String    @unique @db.VarChar(100)
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+  status            RunStatus @default(PENDING)
+  model             String?   @db.VarChar(100)
+  promptVersionId   String?
+  inputTokens       Int       @default(0)
+  outputTokens      Int       @default(0)
+  webSearchRequests Int       @default(0)
+  estimatedCostUsd  Decimal?  @db.Decimal(10, 4)
+  candidatesCount   Int       @default(0)
+  acceptedCount     Int       @default(0)
+  duplicateCount    Int       @default(0)
+  reviewCount       Int       @default(0)
+  errorMessage      String?   @db.Text
+  metadata          Json?
+
+  promptVersion PromptVersion?   @relation(fields: [promptVersionId], references: [id])
+  prospects     Prospect[]
+  candidates    LeadCandidate[]
+
+  @@index([startedAt])
+  @@index([status])
+}
+
+/// Kandidaten met een mogelijke (fuzzy) match wachten hier op menselijke beoordeling.
+model LeadCandidate {
+  id                  String                @id @default(cuid())
+  runId               String
+  payload             Json
+  matchedProspectId   String?
+  matchReason         String?               @db.VarChar(300)
+  status              CandidateReviewStatus @default(PENDING)
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  createdAt           DateTime              @default(now())
+
+  run LeadGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([runId])
+}
+
+model PromptVersion {
+  id         String   @id @default(cuid())
+  purpose    String   @db.VarChar(60)
+  version    Int
+  systemText String   @db.MediumText
+  schemaJson Json
+  sha256     String   @db.VarChar(64)
+  active     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  runs LeadGenerationRun[]
+
+  @@unique([purpose, version])
+  @@index([purpose, active])
+}
+
+model ProspectActivity {
+  id          String       @id @default(cuid())
+  prospectId  String
+  type        ActivityType
+  actorId     String?
+  description String?      @db.Text
+  oldValue    String?      @db.VarChar(500)
+  newValue    String?      @db.VarChar(500)
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  actor    User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([prospectId, createdAt])
+}
+
+model OutreachDraft {
+  id           String      @id @default(cuid())
+  prospectId   String
+  subject      String      @db.VarChar(300)
+  htmlBody     String      @db.MediumText
+  textBody     String      @db.MediumText
+  openingLine  String?     @db.VarChar(500)
+  status       DraftStatus @default(DRAFT)
+  generatedBy  String      @db.VarChar(100)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  approvedById String?
+  approvedAt   DateTime?
+
+  prospect   Prospect       @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  approvedBy User?          @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  emails     EmailMessage[]
+
+  @@index([prospectId, status])
+}
+
+model EmailMessage {
+  id                String      @id @default(cuid())
+  prospectId        String?
+  draftId           String?
+  /// Uniek per verzendpoging; voorkomt dubbel verzenden.
+  idempotencyKey    String      @unique @db.VarChar(100)
+  postmarkMessageId String?     @unique @db.VarChar(100)
+  fromEmail         String      @db.VarChar(320)
+  toEmail           String      @db.VarChar(320)
+  subject           String      @db.VarChar(300)
+  status            EmailStatus @default(QUEUED)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  bounceType        String?     @db.VarChar(60)
+  bounceInfo        String?     @db.Text
+  metadata          Json?
+  createdAt         DateTime    @default(now())
+
+  prospect Prospect?      @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  draft    OutreachDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+
+  @@index([prospectId])
+  @@index([status])
+  @@index([toEmail])
+}
+
+model EmailSuppression {
+  id        String            @id @default(cuid())
+  /// SHA-256 van genormaliseerd e-mailadres; blijft werken na verwijderen van de prospect.
+  emailHash String            @unique @db.VarChar(64)
+  domain    String?           @db.VarChar(255)
+  reason    SuppressionReason
+  createdAt DateTime          @default(now())
+
+  @@index([domain])
+}
+
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  provider    String    @db.VarChar(40)
+  /// Unieke sleutel per providerevent -> idempotente verwerking.
+  externalKey String    @unique @db.VarChar(200)
+  eventType   String    @db.VarChar(60)
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?   @db.Text
+
+  @@index([provider, eventType])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  prospectId  String?
+  type        TaskType     @default(FOLLOW_UP)
+  assigneeId  String?
+  dueAt       DateTime?
+  priority    TaskPriority @default(NORMAL)
+  status      TaskStatus   @default(OPEN)
+  description String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  prospect Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  assignee User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([assigneeId, status, dueAt])
+  @@index([prospectId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(60)
+  entityId   String?  @db.VarChar(64)
+  ip         String?  @db.VarChar(64)
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String    @db.VarChar(60)
+  /// Idempotentiesleutel: zelfde type+key wordt maar één keer ingepland.
+  dedupeKey   String?   @db.VarChar(120)
+  payload     Json?
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?   @db.VarChar(80)
+  lastError   String?   @db.Text
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@unique([type, dedupeKey])
+  @@index([status, runAt])
+}
+
+// ───────────────────────── Klanten en content ─────────────────────────
+
+model Customer {
+  id               String         @id @default(cuid())
+  name             String         @db.VarChar(300)
+  prospectId       String?        @unique
+  contactName      String?        @db.VarChar(200)
+  contactEmail     String?        @db.VarChar(320)
+  status           CustomerStatus @default(ONBOARDING)
+  allowedPlatforms Json
+  storageSettings  Json?
+  defaultTone      String?        @db.Text
+  approvalWorkflow Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  prospect      Prospect?           @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  brandProfiles BrandProfile[]
+  uploadLinks   UploadLink[]
+  submissions   ContentSubmission[]
+}
+
+model BrandProfile {
+  id         String   @id @default(cuid())
+  customerId String
+  version    Int
+  /// Logo's, kleuren, fonts, tone-of-voice, schrijfregels, verboden woorden, CTA's, hashtags, disclaimers...
+  data       Json
+  active     Boolean  @default(false)
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, version])
+}
+
+model UploadLink {
+  id         String    @id @default(cuid())
+  customerId String
+  /// Alleen de SHA-256 hash van het token wordt bewaard.
+  tokenHash  String    @unique @db.VarChar(64)
+  campaign   String?   @db.VarChar(200)
+  expiresAt  DateTime
+  maxUses    Int?
+  useCount   Int       @default(0)
+  revokedAt  DateTime?
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+
+  customer    Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  submissions ContentSubmission[]
+
+  @@index([customerId])
+  @@index([expiresAt])
+}
+
+model ContentSubmission {
+  id             String           @id @default(cuid())
+  customerId     String
+  uploadLinkId   String?
+  status         SubmissionStatus @default(RECEIVED)
+  note           String?          @db.Text
+  topic          String?          @db.VarChar(120)
+  consentAt      DateTime
+  brandVersionId String?
+  failureReason  String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  customer    Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  uploadLink  UploadLink?        @relation(fields: [uploadLinkId], references: [id], onDelete: SetNull)
+  assets      MediaAsset[]
+  concepts    ContentConcept[]
+  drafts      PublicationDraft[]
+
+  @@index([customerId, status])
+}
+
+model MediaAsset {
+  id           String     @id @default(cuid())
+  submissionId String
+  parentId     String?
+  role         AssetRole
+  kind         MediaKind
+  /// Gegenereerde, niet-voorspelbare opslagsleutel; nooit een gebruikersbestandsnaam.
+  storageKey   String     @unique @db.VarChar(200)
+  originalName String?    @db.VarChar(255)
+  mimeType     String     @db.VarChar(100)
+  sizeBytes    BigInt
+  sha256       String     @db.VarChar(64)
+  width        Int?
+  height       Int?
+  durationSec  Decimal?   @db.Decimal(8, 2)
+  variant      String?    @db.VarChar(60)
+  scanStatus   ScanStatus @default(PENDING)
+  createdAt    DateTime   @default(now())
+
+  submission ContentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  parent     MediaAsset?       @relation("AssetDerivatives", fields: [parentId], references: [id], onDelete: Restrict)
+  children   MediaAsset[]      @relation("AssetDerivatives")
+
+  @@index([submissionId, role])
+}
+
+model ContentConcept {
+  id             String   @id @default(cuid())
+  submissionId   String
+  version        Int
+  summary        String?  @db.Text
+  missingContext Json?
+  model          String?  @db.VarChar(100)
+  promptVersionId String?
+  createdAt      DateTime @default(now())
+
+  submission ContentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, version])
+}
+
+model PublicationDraft {
+  id           String              @id @default(cuid())
+  submissionId String
+  platform     PublicationPlatform
+  version      Int                 @default(1)
+  text         String              @db.Text
+  hashtags     Json?
+  cta          String?             @db.VarChar(300)
+  format       String?             @db.VarChar(60)
+  mediaAssetId String?
+  aspectRatio  String?             @db.VarChar(20)
+  resolution   String?             @db.VarChar(20)
+  durationSec  Int?
+  altText      String?             @db.Text
+  status       PublicationStatus   @default(DRAFT)
+  reviewerId   String?
+  feedback     String?             @db.Text
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  submission ContentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, platform, version])
+}
