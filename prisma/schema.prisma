@@ -309,7 +309,8 @@ model Prospect {
   @@index([province, city])
   @@index([industry])
   @@index([createdAt])
-  @@index([normalizedName])
+  @@index([city])
+  @@index([archivedAt])
 }
 
 model ProspectSource {
@@ -468,6 +469,7 @@ model EmailMessage {
   @@index([prospectId])
   @@index([status])
   @@index([toEmail])
+  @@index([sentAt])
 }
 
 model EmailSuppression {
@@ -511,6 +513,7 @@ model Task {
   assignee User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
 
   @@index([assigneeId, status, dueAt])
+  @@index([status, dueAt])
   @@index([prospectId])
 }
 

@@ -2,6 +2,7 @@ import { Router, type Request } from 'express';
 import type { Env } from '../../config/env.js';
 import { EntraClient } from '../../integrations/microsoft/entra.js';
 import { getDb } from '../../shared/database/client.js';
+import { withNamedLock } from '../../shared/database/lock.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { logger } from '../../shared/logging/logger.js';
 import { generateToken, safeEqualString } from '../../shared/security/tokens.js';
@@ -85,20 +86,37 @@ export function authRouter(env: Env, entra: EntraClient = new EntraClient(env)):
       return res.redirect(loginError('denied'));
     }
 
-    // Eerste toegestane gebruiker wordt ADMIN zolang er nog geen admin bestaat (bootstrap).
-    const hasAdmin = (await db.user.count({ where: { role: 'ADMIN', active: true } })) > 0;
-    const user = await db.user.upsert({
-      where: { entraOid: decision.oid },
-      create: {
-        entraOid: decision.oid,
-        tenantId: env.ENTRA_TENANT_ID,
-        name: decision.name,
-        email: decision.email,
-        role: hasAdmin ? 'VIEWER' : 'ADMIN',
-        lastLoginAt: new Date(),
-      },
-      update: { name: decision.name, email: decision.email, lastLoginAt: new Date() },
-    });
+    // Eerste toegestane gebruiker wordt ADMIN zolang er nog geen admin bestaat (bootstrap);
+    // onder een lock zodat twee gelijktijdige eerste logins niet allebei admin worden.
+    let user;
+    try {
+      user = await db.$transaction(
+        (tx) =>
+          withNamedLock(tx, 'spark:user-provision', async () => {
+            const hasAdmin = (await tx.user.count({ where: { role: 'ADMIN', active: true } })) > 0;
+            return tx.user.upsert({
+              where: { entraOid: decision.oid },
+              create: {
+                entraOid: decision.oid,
+                tenantId: env.ENTRA_TENANT_ID,
+                name: decision.name,
+                email: decision.email,
+                role: hasAdmin ? 'VIEWER' : 'ADMIN',
+                lastLoginAt: new Date(),
+              },
+              update: { name: decision.name, email: decision.email, lastLoginAt: new Date() },
+            });
+          }),
+        { timeout: 30_000 },
+      );
+    } catch (err) {
+      // Bijvoorbeeld een e-mailadres dat al bij een andere identiteit hoort (unieke constraint).
+      logger.warn(
+        { code: (err as { code?: string }).code, reqId: req.id },
+        'Gebruiker aanmaken/bijwerken mislukt',
+      );
+      return res.redirect(loginError('login_failed'));
+    }
     if (!user.active) {
       await audit(db, {
         actorId: user.id,
@@ -115,6 +133,7 @@ export function authRouter(env: Env, entra: EntraClient = new EntraClient(env)):
     req.session.userId = user.id;
     req.session.role = user.role;
     req.session.csrfToken = generateToken(24);
+    req.session.createdAt = Date.now(); // absolute levensduur (zie loadUser)
     await save(req);
     await audit(db, {
       actorId: user.id,

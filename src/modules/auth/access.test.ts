@@ -38,6 +38,10 @@ describe('evaluateAccess', () => {
       evaluateAccess({ ...base, iss: 'https://evil.example/tenant-1/' }, policy, 'n1'),
     ).toMatchObject({ allowed: false });
     expect(evaluateAccess(base, policy, 'other-nonce')).toMatchObject({ allowed: false });
+    expect(evaluateAccess({ ...base, iss: undefined }, policy, 'n1')).toEqual({
+      allowed: false,
+      reason: 'issuer_mismatch',
+    });
   });
   it('weigert tenantlid zonder toewijzing (default deny)', () => {
     expect(evaluateAccess({ ...base, groups: ['other'] }, policy, 'n1')).toEqual({

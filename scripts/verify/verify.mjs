@@ -1,4 +1,5 @@
 // Voert alle kwaliteitscontroles uit; stopt bij de eerste fout. Gebruik: npm run verify
+import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
 
 const steps = [
@@ -6,7 +7,12 @@ const steps = [
   ['lint', 'npm', ['run', 'lint']],
   ['typecheck', 'npm', ['run', 'typecheck']],
   ['prisma validate', 'npx', ['prisma', 'validate']],
+  ['migrations in git', 'node', ['scripts/verify/check-migrations.mjs']],
   ['test', 'npm', ['run', 'test']],
+  // Integratietests hebben een aparte *_test database nodig (TEST_DATABASE_URL); zonder die wordt de stap overgeslagen.
+  ...(process.env.TEST_DATABASE_URL
+    ? [['test:integration', 'npm', ['run', 'test:integration']]]
+    : []),
   ['build', 'npm', ['run', 'build']],
   ['security audit', 'node', ['scripts/verify/audit-deps.mjs']],
 ];

@@ -51,11 +51,11 @@ Entra-app-registratie: redirect-URI `https://spark.nicenext.nl/tool/auth/callbac
 
 ## Status
 
-| Fase | Onderdeel                    | Status            |
-| ---- | ---------------------------- | ----------------- |
-| C    | Fundament, auth, shell       | Gebouwd, getest   |
-| D    | CRM (API + schermen)         | **Nog te bouwen** |
-| E    | Leadgeneratie                | **Nog te bouwen** |
-| F    | Outreach + webhooks          | **Nog te bouwen** |
-| G    | Content/uploads/media/review | **Nog te bouwen** |
-| H    | Deployment-scripts           | Deels             |
+| Fase | Onderdeel                    | Status                                                                                                                                                                                                                                                            |
+| ---- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C    | Fundament, auth, shell       | Gebouwd, getest                                                                                                                                                                                                                                                   |
+| D    | CRM (API + schermen)         | Gebouwd; 48 integratietests op MariaDB; UI handmatig gecontroleerd (desktop + mobiel); security-, database- en accessibility-review verwerkt (zie security-design.md voor bewust geaccepteerde punten). Nog niet: klant-conversie (Fase G), outreach-tab (Fase F) |
+| E    | Leadgeneratie                | **Nog te bouwen**                                                                                                                                                                                                                                                 |
+| F    | Outreach + webhooks          | **Nog te bouwen**                                                                                                                                                                                                                                                 |
+| G    | Content/uploads/media/review | **Nog te bouwen**                                                                                                                                                                                                                                                 |
+| H    | Deployment-scripts           | Deels                                                                                                                                                                                                                                                             |

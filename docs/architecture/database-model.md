@@ -25,6 +25,12 @@ Bron van waarheid: `prisma/schema.prisma`. Migraties in `prisma/migrations/` (Gi
 - **Versies:** `BrandProfile(customerId, version)`, `PromptVersion(purpose, version)`, `ContentConcept(submissionId, version)`.
 - **Cascade:** bronnen, activiteiten, taken, drafts verdwijnen mee met een prospect; `EmailMessage.prospectId` wordt `SetNull` zodat verzendhistorie bewaard kan blijven.
 
+## MariaDB-specifiek
+
+- **Tabelnamen zijn op Linux hoofdlettergevoelig, op Windows niet.** `prisma migrate diff` op een Windows-dev-database levert tabelnamen in kleine letters (bijvoorbeeld `ON prospect` in plaats van `ON Prospect`). Controleer elke gegenereerde migratie en zet ze terug naar de modelnaam (`Prospect`). Gebeurd bij `20260921120000_indexes`.
+- `JSON` is bij MariaDB een alias voor `LONGTEXT`; Prisma leest en schrijft dit als object (getest voor `Session.data`).
+- Named locks (`GET_LOCK`) serialiseren duplicaatcontrole + insert (zie `src/shared/database/lock.ts`).
+
 ## Migratieprocedure
 
 1. Wijzig `schema.prisma`.

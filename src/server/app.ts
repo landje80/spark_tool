@@ -7,6 +7,7 @@ import session from 'express-session';
 import helmet from 'helmet';
 import type { Env } from '../config/env.js';
 import { authRouter } from '../modules/auth/routes.js';
+import { crmRouter } from '../modules/prospects/routes.js';
 import {
   csrfProtection,
   loadUser,
@@ -18,7 +19,7 @@ import { getDb } from '../shared/database/client.js';
 import { AppError } from '../shared/errors/app-error.js';
 import { t } from '../shared/i18n/index.js';
 import { logger } from '../shared/logging/logger.js';
-import { roleHas } from '../shared/security/permissions.js';
+import { PERMISSIONS, roleHas } from '../shared/security/permissions.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // dist/server/server/app.js -> dist/web ; src/server/app.ts (tsx) -> dist/web
@@ -115,24 +116,23 @@ export function createApp(env: Env): express.Express {
       legacyHeaders: false,
     }),
   );
+  // Strengere limiet voor schrijfacties (aanmaken/wijzigen); in tests niet beperkend.
+  api.use(
+    rateLimit({
+      windowMs: 60 * 1000,
+      limit: env.NODE_ENV === 'test' ? 100_000 : 120,
+      skip: (req) => req.method === 'GET',
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+    }),
+  );
   api.use(express.json({ limit: '256kb' }));
   api.get('/me', (req, res) => {
     if (!req.user) return res.status(401).json({ code: 'UNAUTHENTICATED' });
     res.json({
       user: req.user,
       csrfToken: req.session.csrfToken,
-      permissions: (
-        [
-          'prospect.read',
-          'prospect.write',
-          'outreach.send',
-          'customer.manage',
-          'content.review',
-          'settings.manage',
-          'user.manage',
-          'audit.read',
-        ] as const
-      ).filter((p) => roleHas(req.user!.role, p)),
+      permissions: PERMISSIONS.filter((p) => roleHas(req.user!.role, p)),
     });
   });
   api.use(requireAuth, csrfProtection(origin));
@@ -145,6 +145,8 @@ export function createApp(env: Env): express.Express {
       time: new Date().toISOString(),
     });
   });
+  api.use(crmRouter(env, db));
+  api.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'Onbekend endpoint')));
   router.use('/api', api);
 
   // Statische frontend onder /tool/; assets zijn gehasht en mogen lang worden gecachet.
@@ -180,14 +182,36 @@ export function createApp(env: Env): express.Express {
   const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     const messages = t().errors;
     if (err instanceof AppError) {
+      // details (veldfouten, duplicaatmatches) zijn door onze eigen code opgebouwd en bevatten geen invoerwaarden.
+      const details =
+        err.code === 'VALIDATION_ERROR' || err.code === 'CONFLICT' ? err.details : undefined;
       return void res
         .status(err.status)
-        .json({ code: err.code, message: messages[err.code], requestId: req.id });
+        .json({ code: err.code, message: messages[err.code], details, requestId: req.id });
+    }
+    const known = err as { code?: string; type?: string };
+    if (known.code === 'P2002') {
+      return void res
+        .status(409)
+        .json({ code: 'CONFLICT', message: messages.CONFLICT, requestId: req.id });
+    }
+    if (known.type === 'entity.parse.failed' || known.type === 'entity.too.large') {
+      return void res
+        .status(known.type === 'entity.too.large' ? 413 : 400)
+        .json({ code: 'VALIDATION_ERROR', message: messages.VALIDATION_ERROR, requestId: req.id });
     }
     logger.error(
       {
         reqId: req.id,
-        err: err instanceof Error ? { name: err.name, message: err.message } : 'unknown',
+        // Geen err.message: Prisma-fouten bevatten queryargumenten (bedrijfs- en persoonsgegevens).
+        err:
+          err instanceof Error
+            ? {
+                name: err.name,
+                code: known.code,
+                message: err.name.startsWith('Prisma') ? undefined : err.message,
+              }
+            : 'unknown',
       },
       'Onverwachte fout',
     );

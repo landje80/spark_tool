@@ -37,7 +37,7 @@ export function evaluateAccess(
   const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
   if (!aud.includes(policy.clientId)) return deny('audience_mismatch');
   if (
-    claims.iss &&
+    !claims.iss ||
     !claims.iss.startsWith(`https://login.microsoftonline.com/${policy.tenantId}/`)
   ) {
     return deny('issuer_mismatch');

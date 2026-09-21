@@ -33,6 +33,12 @@ Internet ↔ Apache/Passenger ↔ Node ↔ MySQL / private opslag; Node ↔ Entr
 - Groepen-overage: gebruikers in >200 groepen worden geweigerd tenzij via gebruikers-ID toegestaan.
 - Bootstrap-admin: eerste toegestane gebruiker wordt ADMIN; beperk de allowlist bij eerste uitrol tot de beoogde beheerder.
 - Prisma-CLI `deepmerge-ts` advisory (zie ADR-001).
+- `TRUST_PROXY=true` staat bewust aan (Passenger/Apache staat altijd vóór Node; nodig voor `secure` cookies en IP-adres). Node mag niet rechtstreeks op internet bereikbaar zijn; anders is `X-Forwarded-For` te vervalsen.
+- Duplicaatcontrole gebruikt kandidaatqueries (max. 500) op begin/einde van de genormaliseerde naam; een zeer afwijkend geschreven naam wordt niet als fuzzy duplicaat herkend.
+- `@@unique([normalizedName, city])` beschermt niet bij `city = NULL` (MariaDB behandelt NULL als uniek); de applicatiecontrole vangt dit als fuzzy match op (bevestiging vereist).
+- Sessies van gedeactiveerde gebruikers worden pas ongeldig bij de volgende request (`loadUser` controleert `active`); actief verwijderen volgt bij gebruikersbeheer.
+- Cascade-regels (`Prospect` → activiteiten/taken/concepten) en `prospect.delete` worden herzien bij de privacy-functies (anonimiseren i.p.v. hard verwijderen); tot dan is er geen delete-endpoint.
+- Ontbrekende foreign keys op enkele `*By`/`*Id`-kolommen (`LeadCandidate.reviewedBy`, `PublicationDraft.reviewerId`, …) worden in Fase E/G toegevoegd.
 
 ## Privacy en AVG (technische maatregelen, geen juridische claim)
 

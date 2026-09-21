@@ -55,6 +55,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/cookie-parser": "^1.4.10",
+    "@types/cookie-signature": "^1.1.2",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
     "@types/node": "^26.6.2",
@@ -63,6 +64,7 @@
     "@types/supertest": "^7.2.1",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
+    "cookie-signature": "^1.2.2",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",

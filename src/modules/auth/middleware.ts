@@ -4,12 +4,16 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { roleHas, type Permission } from '../../shared/security/permissions.js';
 import { safeEqualString } from '../../shared/security/tokens.js';
 
+const MAX_SESSION_AGE_MS = 12 * 60 * 60 * 1000;
+
 /** Laadt de ingelogde gebruiker uit de sessie en controleert dat die nog actief is. */
 export const loadUser: RequestHandler = async (req, _res, next) => {
   try {
     const userId = req.session?.userId;
     if (userId) {
-      const user = await getDb().user.findUnique({ where: { id: userId } });
+      // Absolute levensduur: ook een actieve (rolling) sessie verloopt na 12 uur en vraagt opnieuw inloggen.
+      const expired = Date.now() - (req.session.createdAt ?? 0) > MAX_SESSION_AGE_MS;
+      const user = expired ? null : await getDb().user.findUnique({ where: { id: userId } });
       if (user?.active) {
         req.user = { id: user.id, role: user.role, name: user.name, email: user.email };
       } else {

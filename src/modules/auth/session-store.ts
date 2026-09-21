@@ -39,7 +39,11 @@ export class PrismaSessionStore extends Store {
         create: { id: this.key(sid), userId, data, expiresAt },
         update: { userId, data, expiresAt },
       })
-      .then(() => cb?.())
+      .then(() => {
+        // Opportunistisch opruimen (±1% van de schrijfacties) zolang er geen aparte onderhoudsjob draait.
+        if (Math.random() < 0.01) void this.purgeExpired().catch(() => undefined);
+        cb?.();
+      })
       .catch((err: unknown) => cb?.(err));
   }
 

@@ -5,6 +5,8 @@ declare module 'express-session' {
     userId?: string;
     role?: Role;
     csrfToken?: string;
+    /** Moment van inloggen (ms); sessies ouder dan de absolute levensduur worden geweigerd. */
+    createdAt?: number;
     oidc?: { state: string; nonce: string; codeVerifier: string; returnTo: string };
   }
 }
