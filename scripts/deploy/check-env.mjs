@@ -18,7 +18,6 @@ const RECOMMENDED = [
   'POSTMARK_WEBHOOK_SECRET',
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_MODEL_LEAD_RESEARCH',
-  'LEAD_GENERATION_CRON_SECRET',
 ];
 
 const placeholder = (v) => !v || /CHANGE_ME|^0{8}-0{4}/.test(v);

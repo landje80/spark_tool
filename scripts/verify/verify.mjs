@@ -14,6 +14,7 @@ const steps = [
     ? [['test:integration', 'npm', ['run', 'test:integration']]]
     : []),
   ['build', 'npm', ['run', 'build']],
+  ['smoke gebouwde server', 'node', ['scripts/verify/smoke-built.mjs']],
   ['security audit', 'node', ['scripts/verify/audit-deps.mjs']],
 ];
 

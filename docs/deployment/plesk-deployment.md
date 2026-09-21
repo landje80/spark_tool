@@ -13,7 +13,7 @@
 ## 2. Applicatie
 
 1. Plesk → Git → repository toevoegen (GitHub, SSH deploy key), branch `main`, deploymentpad `/var/www/vhosts/nicenext.nl/spark-tool` (**buiten** de document root).
-2. Plesk → Node.js: Node-versie ≥22.12 (LTS), Application mode `production`, Application root = deploymentpad, Startup file `dist/server/server/index.js`. Zet de omgevingsvariabelen uit `.env.example` (geheimen alleen hier).
+2. Plesk → Node.js: Node-versie ≥22.12 (LTS), Application mode `production`, Application root = deploymentpad, Startup file `dist/server/src/server/index.js`. Zet de omgevingsvariabelen uit `.env.example` (geheimen alleen hier).
 3. Actions na deploy (Git → Additional deployment actions):
    ```
    npm ci
@@ -47,9 +47,14 @@ De app werkt met of zonder afgestript prefix (`src/server/app.ts`). Verifieer me
 
 ## 4. Scheduled Tasks
 
-- Dagelijks 06:30 (Europe/Amsterdam): job-runner voor leadgeneratie (Fase E), met `LEAD_GENERATION_CRON_SECRET`.
-- Elk uur: jobs opruimen/retry, verlopen sessies en uploadtokens purgen.
-- Dagelijks 02:00: `npm run db:backup`.
+Kritieke planning staat bewust **niet** in het webproces. Maak in Plesk (Tools & Settings of per domein → Scheduled Tasks) twee taken, uitgevoerd als de gebruiker van de app, met de applicatiemap als werkmap:
+
+| Taak             | Schema          | Commando                                                                                                                    | Doel                                                                                                                                                                                                                                                      |
+| ---------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jobrunner        | elke 10 minuten | `cd /var/www/vhosts/nicenext.nl/spark-tool && /usr/bin/env node dist/server/src/server/run-jobs.js` (of `npm run jobs:run`) | Plant de dagelijkse jobs idempotent in (leadrun pas na 06:30 lokale tijd, alleen als ingeschakeld en geconfigureerd; onderhoud) en verwerkt de wachtrij, inclusief handmatige runs uit de UI. Exitcode 2 = er zijn jobs definitief mislukt (dead-letter). |
+| Database-back-up | dagelijks 02:00 | `npm run db:backup`                                                                                                         | mysqldump buiten de webroot (zie runbook).                                                                                                                                                                                                                |
+
+Gebruik het Node.js-pad dat bij de gekozen Plesk-Node-versie hoort (Plesk → Node.js toont het pad). De jobrunner leest dezelfde omgevingsvariabelen als de app; in Plesk-taken moeten die daarom ook beschikbaar zijn (exporteer ze in het taakcommando of gebruik een `.env` buiten Git met minimale rechten).
 
 ## 5. Logs
 

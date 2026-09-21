@@ -104,11 +104,16 @@ export function ProspectsPage() {
     <>
       <div className="page-head">
         <h1>{t.title}</h1>
-        {canWrite && (
-          <Link className="btn" to="/prospects/new">
-            {t.add}
+        <div className="page-head__actions">
+          <Link className="btn btn--ghost" to="/prospects/review">
+            {nl.leads.reviewLink}
           </Link>
-        )}
+          {canWrite && (
+            <Link className="btn" to="/prospects/new">
+              {t.add}
+            </Link>
+          )}
+        </div>
       </div>
 
       <form className="card filters" onSubmit={applyFilters} key={query} role="search">

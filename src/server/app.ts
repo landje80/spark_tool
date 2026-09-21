@@ -7,6 +7,7 @@ import session from 'express-session';
 import helmet from 'helmet';
 import type { Env } from '../config/env.js';
 import { authRouter } from '../modules/auth/routes.js';
+import { leadRouter } from '../modules/lead-generation/routes.js';
 import { crmRouter } from '../modules/prospects/routes.js';
 import {
   csrfProtection,
@@ -22,7 +23,7 @@ import { logger } from '../shared/logging/logger.js';
 import { PERMISSIONS, roleHas } from '../shared/security/permissions.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// dist/server/server/app.js -> dist/web ; src/server/app.ts (tsx) -> dist/web
+// dist/server/src/server/app.js -> dist/web ; src/server/app.ts (tsx) -> dist/web
 const WEB_DIR =
   process.env.WEB_DIST_DIR ??
   path.resolve(
@@ -146,6 +147,7 @@ export function createApp(env: Env): express.Express {
     });
   });
   api.use(crmRouter(env, db));
+  api.use(leadRouter(env, db));
   api.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'Onbekend endpoint')));
   router.use('/api', api);
 

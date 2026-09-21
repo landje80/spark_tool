@@ -8,6 +8,8 @@ import { DashboardPage } from './pages/Dashboard';
 import { ProspectDetailPage } from './pages/ProspectDetail';
 import { NewProspectPage } from './pages/ProspectForm';
 import { ProspectsPage } from './pages/Prospects';
+import { ReviewQueuePage } from './pages/ReviewQueue';
+import { SettingsPage } from './pages/Settings';
 import { TasksPage } from './pages/Tasks';
 
 function LoginPage() {
@@ -120,11 +122,12 @@ function Shell({ me }: { me: Me }) {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/prospects" element={<ProspectsPage />} />
             <Route path="/prospects/new" element={<NewProspectPage />} />
+            <Route path="/prospects/review" element={<ReviewQueuePage />} />
             <Route path="/prospects/:id" element={<ProspectDetailPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/customers/*" element={<Placeholder title={nl.nav.customers} />} />
             <Route path="/content/*" element={<Placeholder title={nl.nav.content} />} />
-            <Route path="/settings/*" element={<Placeholder title={nl.nav.settings} />} />
+            <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

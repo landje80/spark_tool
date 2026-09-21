@@ -6,7 +6,7 @@ import { sha256Hex } from '../shared/security/tokens.js';
 
 export const TEST_SECRET = 'test-secret-'.padEnd(48, 'x');
 
-export const testEnv = () =>
+export const testEnv = (extra: Record<string, string> = {}) =>
   parseEnv({
     NODE_ENV: 'test',
     DATABASE_URL: process.env.DATABASE_URL,
@@ -16,6 +16,7 @@ export const testEnv = () =>
     ENTRA_CLIENT_SECRET: 's',
     ENTRA_REDIRECT_URI: 'http://localhost:3000/tool/auth/callback',
     ENTRA_POST_LOGOUT_REDIRECT_URI: 'http://localhost:3000/tool/login',
+    ...extra,
   });
 
 /** Leegt alle tabellen behalve _prisma_migrations. Weigert te draaien buiten een *_test database. */

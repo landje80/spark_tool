@@ -43,7 +43,7 @@ De app monteert al zijn routes onder `APP_BASE_PATH`. Omdat Passenger het prefix
 
 ## ADR-006: Achtergrondtaken via jobs-tabel + Plesk Scheduled Task
 
-Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node dist/server/scripts/run-jobs.js` (of een beveiligd endpoint met `LEAD_GENERATION_CRON_SECRET`) aan; jobs staan in de `Job`-tabel met `dedupeKey`, retries en dead-letter.
+Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node dist/server/src/server/run-jobs.js` (`npm run jobs:run`) (of een beveiligd endpoint met `LEAD_GENERATION_CRON_SECRET`) aan; jobs staan in de `Job`-tabel met `dedupeKey`, retries en dead-letter.
 
 ## Open verificatie (vereist toegang tot server of externe accounts)
 
@@ -52,3 +52,14 @@ Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node di
 - Beschikbaarheid van `ffmpeg` en de linux-`sharp`-binary.
 - Anthropic: modelnaam en beschikbaarheid van web search voor het account.
 - Postmark: webhook-authenticatie (Basic Auth/IP-allowlist) en inbound-configuratie.
+
+## ADR-007: Leadonderzoek in twee fasen (web search, dan gestructureerde extractie)
+
+- **Context:** Het model moet actuele webbronnen raadplegen (server-side `web_search`, `web_fetch`) en strikt gestructureerde kandidaten opleveren. De combinatie van `output_config.format` met web search (citaties in de resultaten) is door ons niet tegen de echte API geverifieerd, en we willen bronnen server-side kunnen controleren.
+- **Besluit:** fase 1 = research met alleen zoek-/ophaaltools (streamend, `pause_turn`-hervatting, verbruik per beurt geboekt); fase 2 = extractie zonder tools via `messages.parse` + `zodOutputFormat`; daarna strikte Zod/regelvalidatie en bronverificatie tegen de werkelijk geziene URL's.
+- **Gevolg:** twee aanroepen per run (iets duurder), maar robuust, testbaar met een mock en met een bewaard onderzoek dat een retry niet opnieuw laat betalen. Heroverweeg bij een modelupgrade of als de combinatie in ��n aanroep is bevestigd.
+- **Modelnaam** blijft configuratie (`ANTHROPIC_MODEL_LEAD_RESEARCH`, geen default); prijzen staan in `cost.ts` en moeten bij een modelwissel worden gecontroleerd (skill `anthropic-prompt-change`).
+
+## ADR-008: E�n jobrunner via Plesk Scheduled Task
+
+E�n taak elke ~10 minuten (`npm run jobs:run`) plant idempotent de dagelijkse jobs in en verwerkt de wachtrij; geen `setInterval` in het webproces en geen aparte HTTP-cron-endpoint (dus `LEAD_GENERATION_CRON_SECRET` is in fase 1 ongebruikt). Build-uitvoer staat onder `dist/server/src/server/` (`rootDir` is de projectroot); `npm run verify` start de gebouwde server als smoke-test.

@@ -58,7 +58,7 @@ const schema = z.object({
   FFMPEG_PATH: z.string().optional(),
   SHARP_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
 
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  LOG_LEVEL: z.enum(['silent', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   AUDIT_LOG_RETENTION_DAYS: z.coerce.number().int().min(30).default(730),
   PROSPECT_RETENTION_DAYS: z.coerce.number().int().min(30).default(730),
   TRUST_PROXY: bool.default(true),

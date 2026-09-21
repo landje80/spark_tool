@@ -14,7 +14,7 @@
     "build": "npm run build:web && npm run build:server",
     "build:web": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
-    "start": "node dist/server/server/index.js",
+    "start": "node dist/server/src/server/index.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -29,7 +29,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:backup": "node scripts/backup/db-backup.mjs",
-    "healthcheck": "node scripts/verify/healthcheck.mjs"
+    "healthcheck": "node scripts/verify/healthcheck.mjs",
+    "jobs:run": "node dist/server/src/server/run-jobs.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
