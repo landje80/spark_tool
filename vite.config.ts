@@ -9,6 +9,9 @@ export default defineConfig({
   build: { outDir: '../../dist/web', emptyOutDir: true, sourcemap: false },
   server: {
     port: 5173,
-    proxy: { '/tool/api': 'http://localhost:3000', '/tool/auth': 'http://localhost:3000' },
+    // Trailing slash is bewust: '/tool/api' (zonder slash) zou als voorvoegsel ook het eigen
+    // frontendbestand src/web/api.ts matchen (geserveerd op /tool/api.ts) en dat abusievelijk naar
+    // de backend doorsturen, die er dan de SPA-HTML voor teruggeeft in plaats van de JS-module.
+    proxy: { '/tool/api/': 'http://localhost:3000', '/tool/auth/': 'http://localhost:3000' },
   },
 });
