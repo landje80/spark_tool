@@ -38,6 +38,7 @@ function CustomerCreateForm({ onCreated }: { onCreated: () => void }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [general, setGeneral] = useState('');
   const [saving, setSaving] = useState(false);
+  const announce = useAnnounce();
 
   // Bij validatiefouten gaat de focus naar het eerste ongeldige veld (WCAG 3.3.1), net als ProspectForm.
   useEffect(() => {
@@ -61,6 +62,7 @@ function CustomerCreateForm({ onCreated }: { onCreated: () => void }) {
         allowedPlatforms,
       });
       e.currentTarget.reset();
+      announce(t.created);
       onCreated();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'VALIDATION_ERROR') {
@@ -211,7 +213,7 @@ function NewUploadLinkForm({
   return (
     <div>
       {link && (
-        <div className="alert alert--info" role="status">
+        <div className="notice" role="status">
           <p>{t.linkCreated}</p>
           <p className="pre">{link.url}</p>
           <button type="button" className="btn btn--ghost" onClick={() => void copy()}>

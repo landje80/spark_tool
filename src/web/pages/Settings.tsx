@@ -181,11 +181,8 @@ export function SettingsPage() {
     <>
       <h1>{t.title}</h1>
       {error && <ErrorNote message={error} />}
-      {message && (
-        <p className="notice" role="status">
-          {message}
-        </p>
-      )}
+      {/* Geen role="status": de melding wordt al via de gedeelde live-region (announce) voorgelezen. */}
+      {message && <p className="notice">{message}</p>}
 
       <section className="card" aria-labelledby="h-leadgen">
         <h2 id="h-leadgen">{t.leadgen}</h2>

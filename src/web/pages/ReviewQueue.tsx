@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { nl } from '../../shared/i18n/nl';
 import { send } from '../api';
@@ -64,6 +64,7 @@ export function ReviewQueuePage() {
   const { data, error, loading, reload } = useApi<{ candidates: Item[] }>('/leads/candidates');
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   async function resolve(id: string, action: 'accept' | 'attach' | 'reject') {
     setBusy(id);
@@ -72,6 +73,9 @@ export function ReviewQueuePage() {
       await send('POST', `/leads/candidates/${id}/resolve`, { action });
       announce(t.done);
       reload();
+      // De kaart met de knop die de focus had, verdwijnt uit de lijst; zet de focus
+      // op een stabiel punt in plaats van hem stilzwijgend naar <body> te laten vallen.
+      headingRef.current?.focus();
     } catch {
       setFailed(true);
     } finally {
@@ -84,7 +88,9 @@ export function ReviewQueuePage() {
       <p>
         <Link to="/prospects">← {t.back}</Link>
       </p>
-      <h1>{t.reviewTitle}</h1>
+      <h1 ref={headingRef} tabIndex={-1}>
+        {t.reviewTitle}
+      </h1>
       <p className="muted">{t.reviewIntro}</p>
       {loading && <Loading />}
       {error && <ErrorNote message={nl.common.error} />}

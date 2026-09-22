@@ -397,7 +397,9 @@ export function SubmissionDetailPage() {
       </p>
       <div className="page-head">
         <h1>{data.topic ?? data.customer.name}</h1>
-        <span className="badge">{t.submissionStatus[data.status]}</span>
+        <span className={`badge badge--submission-${data.status.toLowerCase()}`}>
+          {t.submissionStatus[data.status]}
+        </span>
       </div>
       <p className="muted">
         {t.customer}: <Link to={`/customers/${data.customer.id}`}>{data.customer.name}</Link>

@@ -8,6 +8,7 @@ import {
   fmtDate,
   fmtDateTime,
   safeHref,
+  useAnnounce,
   useApi,
   usePageTitle,
   type ListResponse,
@@ -95,6 +96,7 @@ function StatusPanel({ d, onDone }: { d: Detail; onDone: () => void }) {
   const [status, setStatus] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const announce = useAnnounce();
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -102,6 +104,7 @@ function StatusPanel({ d, onDone }: { d: Detail; onDone: () => void }) {
       await send('POST', `/prospects/${d.id}/status`, { status, reason });
       setStatus('');
       setReason('');
+      announce(t.statusUpdated);
       onDone();
     } catch {
       setError(nl.errors.INVALID_TRANSITION);
@@ -147,12 +150,14 @@ function ActivitySection({
   const [type, setType] = useState<'NOTE' | 'CALL'>('NOTE');
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const announce = useAnnounce();
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError('');
     try {
       await send('POST', `/prospects/${d.id}/activities`, { type, description: text });
       setText('');
+      announce(t.noteAdded);
       onDone();
     } catch {
       setError(nl.common.error);
@@ -233,6 +238,8 @@ function TasksSection({
   const [priority, setPriority] = useState('NORMAL');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const announce = useAnnounce();
   async function add(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -245,18 +252,29 @@ function TasksSection({
       });
       setDescription('');
       setDue('');
+      announce(t.taskAdded);
       onDone();
     } catch {
       setError(nl.common.error);
     }
   }
   async function complete(id: string) {
-    await send('PATCH', `/tasks/${id}`, { status: 'DONE' });
-    onDone();
+    setError('');
+    setCompletingId(id);
+    try {
+      await send('PATCH', `/tasks/${id}`, { status: 'DONE' });
+      announce(t.taskCompleted);
+      onDone();
+    } catch {
+      setError(t.taskCompleteFailed);
+    } finally {
+      setCompletingId(null);
+    }
   }
   return (
     <section className="card" aria-labelledby="h-tasks">
       <h2 id="h-tasks">{t.tasks}</h2>
+      {error && <ErrorNote message={error} />}
       {d.tasks.length === 0 ? (
         <p className="muted">{t.noTasks}</p>
       ) : (
@@ -273,10 +291,13 @@ function TasksSection({
               {canWrite && k.status === 'OPEN' && (
                 <button
                   className="btn btn--ghost"
+                  aria-disabled={completingId === k.id}
                   aria-label={fmt(nl.crm.tasks.completeNamed, {
                     name: k.description || nl.taskType[k.type],
                   })}
-                  onClick={() => void complete(k.id)}
+                  onClick={() => {
+                    if (completingId !== k.id) void complete(k.id);
+                  }}
                 >
                   {t.taskDone}
                 </button>
@@ -322,7 +343,6 @@ function TasksSection({
           <button className="btn" type="submit">
             {t.taskAdd}
           </button>
-          {error && <ErrorNote message={error} />}
         </form>
       )}
     </section>
@@ -338,8 +358,10 @@ function MergeSection({ d, onDone }: { d: Detail; onDone: () => void }) {
       ? `/prospects?q=${encodeURIComponent(q.trim())}&pageSize=8&includeArchived=true`
       : null,
   ).data;
+  const [merging, setMerging] = useState<string | null>(null);
   async function merge(sourceId: string) {
     setError('');
+    setMerging(sourceId);
     try {
       await send('POST', `/prospects/${d.id}/merge`, { sourceId });
       setMessage(t.mergeDone);
@@ -347,6 +369,8 @@ function MergeSection({ d, onDone }: { d: Detail; onDone: () => void }) {
       onDone();
     } catch {
       setError(nl.common.error);
+    } finally {
+      setMerging(null);
     }
   }
   return (
@@ -371,7 +395,13 @@ function MergeSection({ d, onDone }: { d: Detail; onDone: () => void }) {
               <span>
                 {r.companyName} {r.city ? `(${r.city})` : ''}
               </span>
-              <button className="btn btn--ghost" onClick={() => void merge(r.id)}>
+              <button
+                className="btn btn--ghost"
+                aria-disabled={merging === r.id}
+                onClick={() => {
+                  if (merging !== r.id) void merge(r.id);
+                }}
+              >
                 {fmt(t.mergeConfirm, { name: r.companyName })}
               </button>
             </li>

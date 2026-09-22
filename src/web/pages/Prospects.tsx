@@ -240,18 +240,18 @@ export function ProspectsPage() {
           <button
             type="button"
             className="btn btn--ghost"
-            onClick={() => setParams(new URLSearchParams())}
+            onClick={() => {
+              refocusSearch.current = true;
+              setParams(new URLSearchParams());
+            }}
           >
             {t.reset}
           </button>
         </div>
       </form>
 
-      {message && (
-        <p className="notice" role="status">
-          {message}
-        </p>
-      )}
+      {/* Geen role="status": de melding wordt al via de gedeelde live-region (announce) voorgelezen. */}
+      {message && <p className="notice">{message}</p>}
       {bulkError && <ErrorNote message={bulkError} />}
 
       {canWrite && selected.size > 0 && (

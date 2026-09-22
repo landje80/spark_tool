@@ -957,18 +957,56 @@ html {
 }
 
 /* Fase G: content-/publishingstatussen */
+.badge--draft-draft {
+  background: #fff1e6;
+  border-color: #ffb37a;
+}
+.badge--draft-in_review {
+  background: #e7f0fb;
+  border-color: #a5c5ea;
+}
 .badge--draft-approved,
 .badge--draft-published {
   background: #e9f7ec;
   border-color: #9bd3a6;
 }
 .badge--draft-changes_requested {
-  background: #fff1e6;
-  border-color: #ffb37a;
+  background: #fdecea;
+  border-color: #e6a19b;
+  color: #7a0e08;
 }
 .badge--draft-discarded {
   background: #eee9e4;
   color: #4a4038;
+}
+
+/* Submissionstatus op de contentdetailpagina; zelfde systematiek als badge--draft-* */
+.badge--submission-received,
+.badge--submission-technical_check,
+.badge--submission-processing {
+  background: #fff1e6;
+  border-color: #ffb37a;
+}
+.badge--submission-draft_ready,
+.badge--submission-in_review,
+.badge--submission-changes_requested {
+  background: #e7f0fb;
+  border-color: #a5c5ea;
+}
+.badge--submission-approved,
+.badge--submission-ready_to_publish,
+.badge--submission-published {
+  background: #e9f7ec;
+  border-color: #9bd3a6;
+}
+.badge--submission-archived {
+  background: #eee9e4;
+  color: #4a4038;
+}
+.badge--submission-failed {
+  background: #fdecea;
+  border-color: #e6a19b;
+  color: #7a0e08;
 }
 
 .checkgroup {

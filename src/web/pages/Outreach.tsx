@@ -324,6 +324,7 @@ export function OutreachSection({
   const [error, setError] = useState('');
   const [reply, setReply] = useState('');
   const [replyNo, setReplyNo] = useState(false);
+  const draftsHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const open = drafts.filter((d) => d.status === 'DRAFT');
 
@@ -346,6 +347,9 @@ export function OutreachSection({
       await send('POST', `/outreach/drafts/${id}/discard`);
       announce(t.discardOk);
       onChange();
+      // De knop die de focus had verdwijnt uit de conceptenlijst; zet de focus op een
+      // stabiel punt in plaats van hem naar <body> te laten vallen.
+      draftsHeadingRef.current?.focus();
     } catch {
       setError(nl.common.error);
     }
@@ -400,7 +404,9 @@ export function OutreachSection({
         />
       ) : (
         <>
-          <h3>{t.drafts}</h3>
+          <h3 ref={draftsHeadingRef} tabIndex={-1}>
+            {t.drafts}
+          </h3>
           {open.length === 0 ? (
             <p className="muted">{t.noDrafts}</p>
           ) : (

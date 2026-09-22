@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { nl } from '../../shared/i18n/nl';
 import { send } from '../api';
 import { ErrorNote, Loading } from '../components';
-import { fmt, fmtDate, useApi, usePageTitle, type UserRef } from '../lib';
+import { fmt, fmtDate, useAnnounce, useApi, usePageTitle, type UserRef } from '../lib';
 import { useCan } from '../me';
 
 const t = nl.crm.tasks;
@@ -25,6 +25,9 @@ export function TasksPage() {
   const [status, setStatus] = useState<'OPEN' | 'DONE'>('OPEN');
   const canWrite = useCan('prospect.write');
   const [failed, setFailed] = useState(false);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const announce = useAnnounce();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   usePageTitle(t.title);
   const { data, error, loading, reload } = useApi<{ tasks: TaskRow[] }>(
     `/tasks?status=${status}${mine ? '&mine=true' : ''}`,
@@ -32,17 +35,26 @@ export function TasksPage() {
 
   async function complete(id: string) {
     setFailed(false);
+    setCompletingId(id);
     try {
       await send('PATCH', `/tasks/${id}`, { status: 'DONE' });
+      announce(t.completed);
       reload();
+      // De knop die de focus had verdwijnt uit de lijst zodra de taak niet meer OPEN is;
+      // zet de focus op een stabiel punt in plaats van hem naar <body> te laten vallen.
+      headingRef.current?.focus();
     } catch {
       setFailed(true);
+    } finally {
+      setCompletingId(null);
     }
   }
 
   return (
     <>
-      <h1>{t.title}</h1>
+      <h1 ref={headingRef} tabIndex={-1}>
+        {t.title}
+      </h1>
       <div className="card filters__row">
         <label className="check">
           <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
@@ -81,8 +93,11 @@ export function TasksPage() {
               {canWrite && k.status === 'OPEN' && (
                 <button
                   className="btn btn--ghost"
+                  aria-disabled={completingId === k.id}
                   aria-label={fmt(t.completeNamed, { name: k.description || nl.taskType[k.type] })}
-                  onClick={() => void complete(k.id)}
+                  onClick={() => {
+                    if (completingId !== k.id) void complete(k.id);
+                  }}
                 >
                   {t.complete}
                 </button>
