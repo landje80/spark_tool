@@ -1,4 +1,7 @@
 import { AppError } from '../../shared/errors/app-error.js';
+import { escapeHtml } from '../../shared/http/public-page.js';
+
+export { escapeHtml };
 
 /** Bevat de waarde regeleinden of een NUL-teken? (Bewust zonder tekenklasse: formatters herschrijven die onzichtbaar.) */
 export function hasLineBreaks(value: string): boolean {
@@ -33,15 +36,6 @@ export function paragraphsOf(text: string): string[] {
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean);
-}
-
-export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 /**

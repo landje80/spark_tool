@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import type { z } from 'zod';
-import type { StructuredClient } from '../../modules/outreach/writer.js';
+import type { StructuredClient } from './types.js';
 
 /** Enkelvoudige gestructureerde aanroep zonder tools (bv. conceptmails). Niet gebruikt in tests. */
 export class AnthropicStructuredClient implements StructuredClient {

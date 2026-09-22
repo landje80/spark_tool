@@ -35,7 +35,9 @@ Bron van waarheid: `prisma/schema.prisma`. Migraties in `prisma/migrations/` (Gi
 
 1. Wijzig `schema.prisma`.
 2. `npx prisma migrate dev --name <naam>` (lokale MySQL) of `migrate diff --script`.
-3. Beoordeel de SQL op destructieve statements (`DROP`, kolomverkleining). Destructief → expand/contract in meerdere releases.
+3. Beoordeel de SQL op destructieve statements (`DROP`, kolomverkleining). Destructief → expand/contract in meerdere releases. Een nieuwe `ADD CONSTRAINT ... FOREIGN KEY` faalt hard als er al rijen bestaan met een waarde die naar niets (meer) verwijst; controleer dat vooraf op een productie-achtige dataset, niet alleen op een lege dev-database.
 4. `npm run db:backup`, daarna `npm run db:migrate` (`prisma migrate deploy`).
 
 De initiële migratie `20260921000000_init` is gegenereerd met `prisma migrate diff` en op 2026-09-21 succesvol toegepast op een lokale **MariaDB 11.8.2**: 26 tabellen, geen schema-drift, seed geslaagd. De productieserver draait MariaDB; de exacte serverversie moet nog worden vergeleken met 11.8.
+
+`20260922150000_content_fk_hardening` (Fase G) voegt de foreign keys toe die bij de fundering nog ontbraken: `LeadCandidate.reviewedBy`, `BrandProfile.createdBy`, `UploadLink.createdBy`, `ContentConcept.promptVersionId`, `PublicationDraft.mediaAssetId` en `PublicationDraft.reviewerId` (alle `ON DELETE SET NULL`, zoals de overige `*By`-kolommen).

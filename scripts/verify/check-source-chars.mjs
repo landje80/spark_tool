@@ -4,8 +4,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const ROOTS = ['src', 'scripts', 'prisma', '.claude'];
-const EXT = new Set(['.ts', '.tsx', '.mjs', '.js', '.css']);
+const ROOTS = ['src', 'scripts', 'prisma', '.claude', 'docs'];
+const EXT = new Set(['.ts', '.tsx', '.mjs', '.js', '.css', '.md']);
 const SKIP = new Set(['node_modules', 'migrations', 'generated']);
 const problems = [];
 
@@ -23,10 +23,12 @@ function scan(file) {
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i);
     const control = (c < 32 && c !== 9 && c !== 10 && c !== 13) || c === 127;
-    if (control || c === 0xfeff || c === 0x200b || c === 0x2028 || c === 0x2029) {
+    // U+FFFD (replacement character) duidt op een eerdere kapotte encoding-omzetting (bv. een
+    // niet-ASCII teken dat via een verkeerde codepage is weggeschreven), niet op geldige inhoud.
+    if (control || c === 0xfeff || c === 0x200b || c === 0x2028 || c === 0x2029 || c === 0xfffd) {
       const line = text.slice(0, i).split('\n').length;
       problems.push(
-        `${file}:${line}: onzichtbaar teken (U+${c.toString(16).toUpperCase().padStart(4, '0')})`,
+        `${file}:${line}: onzichtbaar of ongeldig teken (U+${c.toString(16).toUpperCase().padStart(4, '0')})`,
       );
       break; // één melding per bestand is genoeg
     }

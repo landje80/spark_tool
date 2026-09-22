@@ -2,11 +2,11 @@ import express, { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import type { PrismaClient } from '@prisma/client';
 import type { Env } from '../../config/env.js';
+import { escapeHtml, publicPage } from '../../shared/http/public-page.js';
 import { logger } from '../../shared/logging/logger.js';
 import { safeEqualString } from '../../shared/security/tokens.js';
 import { audit } from '../audit/audit.js';
 import { canTransition } from '../prospects/status.js';
-import { escapeHtml } from './render.js';
 import { addSuppression } from './suppression.js';
 import { verifyUnsubscribeToken } from './tokens.js';
 import { processPostmarkEvent } from './webhooks.js';
@@ -23,13 +23,6 @@ function basicAuthOk(header: string | undefined, secret: string): boolean {
   return userOk && passOk;
 }
 
-// Minimale, afhankelijkheidsvrije stijl: leesbare regellengte, zichtbare focus en 44px-knoppen,
-// ook zonder de rest van de applicatie-CSS (deze pagina wordt buiten de SPA om uitgeleverd).
-const PAGE_STYLE = `body{font:1rem/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#241a12;background:#faf6f1;max-width:32rem;margin:2rem auto;padding:0 1rem}button{font:inherit;font-weight:700;min-height:44px;padding:0 1.5rem;border:2px solid #241a12;border-radius:8px;background:#ff6a1a;color:#241a12;cursor:pointer}button:hover{background:#e84d00}button:focus-visible{outline:3px solid #241a12;outline-offset:2px}`;
-
-const page = (title: string, body: string): string =>
-  `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="robots" content="noindex"><title>${escapeHtml(title)}</title><style>${PAGE_STYLE}</style></head><body><main><h1>${escapeHtml(title)}</h1>${body}</main></body></html>`;
-
 const mask = (email: string): string => {
   const [l = '', d = ''] = email.split('@');
   return `${l.slice(0, 1)}***@${d}`;
@@ -42,6 +35,7 @@ const mask = (email: string): string => {
 export function publicOutreachRouter(env: Env, db: PrismaClient): Router {
   const r = Router();
   const testEnv = env.NODE_ENV === 'test';
+  const page = (title: string, body: string) => publicPage(env.APP_BASE_PATH, title, body);
 
   r.post(
     '/webhooks/postmark',

@@ -10,6 +10,11 @@ import { authRouter } from '../modules/auth/routes.js';
 import { AnthropicStructuredClient } from '../integrations/anthropic/structured-client.js';
 import { PostmarkMailClient } from '../integrations/postmark/client.js';
 import { MailError, type MailPort } from '../integrations/postmark/types.js';
+import { createStorage } from '../integrations/storage/index.js';
+import type { StoragePort } from '../integrations/storage/types.js';
+import { customersRouter } from '../modules/customers/routes.js';
+import { publicContentIntakeRouter } from '../modules/content-intake/public-routes.js';
+import { contentIntakeRouter } from '../modules/content-intake/routes.js';
 import { leadRouter } from '../modules/lead-generation/routes.js';
 import { publicOutreachRouter } from '../modules/outreach/public-routes.js';
 import { outreachRouter } from '../modules/outreach/routes.js';
@@ -18,6 +23,12 @@ import {
   TemplateDraftWriter,
   type DraftWriter,
 } from '../modules/outreach/writer.js';
+import { publishingRouter } from '../modules/publishing/routes.js';
+import {
+  AiConceptWriter,
+  TemplateConceptWriter,
+  type ConceptWriter,
+} from '../modules/publishing/writer.js';
 import { crmRouter } from '../modules/prospects/routes.js';
 import {
   csrfProtection,
@@ -28,6 +39,7 @@ import {
 import { PrismaSessionStore } from '../modules/auth/session-store.js';
 import { getDb } from '../shared/database/client.js';
 import { AppError } from '../shared/errors/app-error.js';
+import { publicPageAssetsRouter } from '../shared/http/public-page.js';
 import { t } from '../shared/i18n/index.js';
 import { logger } from '../shared/logging/logger.js';
 import { PERMISSIONS, roleHas } from '../shared/security/permissions.js';
@@ -41,10 +53,12 @@ const WEB_DIR =
     here.includes(`${path.sep}dist${path.sep}`) ? '../../../web' : '../../dist/web',
   );
 
-/** Vervangbare afhankelijkheden (tests injecteren mocks; er wordt in tests nooit echt gemaild). */
+/** Vervangbare afhankelijkheden (tests injecteren mocks; er wordt in tests nooit echt gemaild/aangeroepen). */
 export interface AppDeps {
   mail?: MailPort;
   draftWriter?: DraftWriter;
+  conceptWriter?: ConceptWriter;
+  storage?: StoragePort;
 }
 
 function defaultMail(env: Env): MailPort {
@@ -69,12 +83,23 @@ function defaultWriter(env: Env): DraftWriter {
   return new TemplateDraftWriter();
 }
 
+function defaultConceptWriter(env: Env): ConceptWriter {
+  if (env.NODE_ENV !== 'test' && env.ANTHROPIC_API_KEY && env.ANTHROPIC_MODEL_CONTENT) {
+    return new AiConceptWriter(
+      new AnthropicStructuredClient(env.ANTHROPIC_API_KEY),
+      env.ANTHROPIC_MODEL_CONTENT,
+    );
+  }
+  return new TemplateConceptWriter();
+}
+
 export function createApp(env: Env, deps: AppDeps = {}): express.Express {
   const app = express();
   const basePath = env.APP_BASE_PATH;
   const origin = new URL(env.APP_BASE_URL).origin;
   const isProd = env.NODE_ENV === 'production';
   const db = getDb();
+  const storage = deps.storage ?? createStorage(env);
 
   app.disable('x-powered-by');
   if (env.TRUST_PROXY) app.set('trust proxy', 1); // Apache/Passenger vóór Node
@@ -119,8 +144,10 @@ export function createApp(env: Env, deps: AppDeps = {}): express.Express {
   // Gezondheid: bewust zonder details; diepe check staat achter autorisatie.
   router.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-  // Publiek en zonder sessie: Postmark-webhook (Basic Auth) en afmeldpagina (token in de URL).
+  // Publiek en zonder sessie: Postmark-webhook (Basic Auth), afmeldpagina en mobiele uploadlink.
+  router.use(publicPageAssetsRouter());
   router.use(publicOutreachRouter(env, db));
+  router.use(publicContentIntakeRouter({ env, db, storage }));
 
   router.use(
     session({
@@ -197,6 +224,9 @@ export function createApp(env: Env, deps: AppDeps = {}): express.Express {
       writer: deps.draftWriter ?? defaultWriter(env),
     }),
   );
+  api.use(customersRouter(db));
+  api.use(contentIntakeRouter(env, db, storage));
+  api.use(publishingRouter({ db, env, writer: deps.conceptWriter ?? defaultConceptWriter(env) }));
   api.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'Onbekend endpoint')));
   router.use('/api', api);
 

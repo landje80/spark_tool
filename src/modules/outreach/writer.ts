@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import type { StructuredClient } from '../../integrations/anthropic/types.js';
+
+export type { StructuredClient };
 
 export interface DraftInput {
   companyName: string;
@@ -48,17 +51,6 @@ export class TemplateDraftWriter implements DraftWriter {
       ],
     };
   }
-}
-
-/** Poort voor gestructureerde modelaanroepen (in tests een mock). */
-export interface StructuredClient {
-  generate<T>(input: {
-    model: string;
-    system: string;
-    user: string;
-    schema: z.ZodType<T>;
-    maxTokens: number;
-  }): Promise<T | null>;
 }
 
 export const DRAFT_SYSTEM_PROMPT = `Je schrijft een korte, persoonlijke en beleefde zakelijke kennismakings-e-mail in het Nederlands namens Spark, een bureau dat bedrijven helpt met socialmediacontent.

@@ -222,11 +222,15 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  ownedProspects Prospect[]      @relation("ProspectOwner")
-  tasks          Task[]
-  activities     ProspectActivity[]
-  approvedDrafts OutreachDraft[]
-  auditLogs      AuditLog[]
+  ownedProspects       Prospect[]         @relation("ProspectOwner")
+  tasks                Task[]
+  activities           ProspectActivity[]
+  approvedDrafts       OutreachDraft[]
+  auditLogs            AuditLog[]
+  reviewedLeads        LeadCandidate[]
+  reviewedDrafts       PublicationDraft[]
+  createdUploadLinks   UploadLink[]
+  createdBrandProfiles BrandProfile[]
 
   @@index([role, active])
 }
@@ -293,15 +297,15 @@ model Prospect {
   archivedAt          DateTime?
   anonymizedAt        DateTime?
 
-  owner       User?              @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  foundByRun  LeadGenerationRun? @relation(fields: [foundByRunId], references: [id], onDelete: SetNull)
-  sources     ProspectSource[]
-  socials     SocialProfile[]
-  activities  ProspectActivity[]
-  drafts      OutreachDraft[]
-  emails      EmailMessage[]
-  tasks       Task[]
-  customer    Customer?
+  owner      User?              @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  foundByRun LeadGenerationRun? @relation(fields: [foundByRunId], references: [id], onDelete: SetNull)
+  sources    ProspectSource[]
+  socials    SocialProfile[]
+  activities ProspectActivity[]
+  drafts     OutreachDraft[]
+  emails     EmailMessage[]
+  tasks      Task[]
+  customer   Customer?
 
   @@unique([normalizedName, city])
   @@index([status, ownerId])
@@ -364,7 +368,7 @@ model LeadGenerationRun {
   errorMessage      String?   @db.Text
   metadata          Json?
 
-  promptVersion PromptVersion?   @relation(fields: [promptVersionId], references: [id])
+  promptVersion PromptVersion?  @relation(fields: [promptVersionId], references: [id])
   prospects     Prospect[]
   candidates    LeadCandidate[]
 
@@ -374,17 +378,18 @@ model LeadGenerationRun {
 
 /// Kandidaten met een mogelijke (fuzzy) match wachten hier op menselijke beoordeling.
 model LeadCandidate {
-  id                  String                @id @default(cuid())
-  runId               String
-  payload             Json
-  matchedProspectId   String?
-  matchReason         String?               @db.VarChar(300)
-  status              CandidateReviewStatus @default(PENDING)
-  reviewedBy          String?
-  reviewedAt          DateTime?
-  createdAt           DateTime              @default(now())
+  id                String                @id @default(cuid())
+  runId             String
+  payload           Json
+  matchedProspectId String?
+  matchReason       String?               @db.VarChar(300)
+  status            CandidateReviewStatus @default(PENDING)
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  createdAt         DateTime              @default(now())
 
-  run LeadGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run      LeadGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  reviewer User?             @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([runId])
@@ -400,7 +405,8 @@ model PromptVersion {
   active     Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  runs LeadGenerationRun[]
+  runs     LeadGenerationRun[]
+  concepts ContentConcept[]
 
   @@unique([purpose, version])
   @@index([purpose, active])
@@ -575,6 +581,8 @@ model Customer {
   brandProfiles BrandProfile[]
   uploadLinks   UploadLink[]
   submissions   ContentSubmission[]
+
+  @@index([status])
 }
 
 model BrandProfile {
@@ -588,6 +596,7 @@ model BrandProfile {
   createdAt  DateTime @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  creator  User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@unique([customerId, version])
 }
@@ -606,6 +615,7 @@ model UploadLink {
   createdAt  DateTime  @default(now())
 
   customer    Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  creator     User?               @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   submissions ContentSubmission[]
 
   @@index([customerId])
@@ -625,13 +635,14 @@ model ContentSubmission {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  customer    Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  uploadLink  UploadLink?        @relation(fields: [uploadLinkId], references: [id], onDelete: SetNull)
-  assets      MediaAsset[]
-  concepts    ContentConcept[]
-  drafts      PublicationDraft[]
+  customer   Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  uploadLink UploadLink?        @relation(fields: [uploadLinkId], references: [id], onDelete: SetNull)
+  assets     MediaAsset[]
+  concepts   ContentConcept[]
+  drafts     PublicationDraft[]
 
   @@index([customerId, status])
+  @@index([status, updatedAt])
 }
 
 model MediaAsset {
@@ -653,24 +664,26 @@ model MediaAsset {
   scanStatus   ScanStatus @default(PENDING)
   createdAt    DateTime   @default(now())
 
-  submission ContentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  parent     MediaAsset?       @relation("AssetDerivatives", fields: [parentId], references: [id], onDelete: Restrict)
-  children   MediaAsset[]      @relation("AssetDerivatives")
+  submission   ContentSubmission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  parent       MediaAsset?        @relation("AssetDerivatives", fields: [parentId], references: [id], onDelete: Restrict)
+  children     MediaAsset[]       @relation("AssetDerivatives")
+  usedInDrafts PublicationDraft[]
 
   @@index([submissionId, role])
 }
 
 model ContentConcept {
-  id             String   @id @default(cuid())
-  submissionId   String
-  version        Int
-  summary        String?  @db.Text
-  missingContext Json?
-  model          String?  @db.VarChar(100)
+  id              String   @id @default(cuid())
+  submissionId    String
+  version         Int
+  summary         String?  @db.Text
+  missingContext  Json?
+  model           String?  @db.VarChar(100)
   promptVersionId String?
-  createdAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
 
-  submission ContentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submission    ContentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  promptVersion PromptVersion?    @relation(fields: [promptVersionId], references: [id])
 
   @@unique([submissionId, version])
 }
@@ -696,6 +709,8 @@ model PublicationDraft {
   updatedAt    DateTime            @updatedAt
 
   submission ContentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset?       @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  reviewer   User?             @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
 
   @@index([submissionId, platform, version])
 }

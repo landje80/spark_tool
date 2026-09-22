@@ -16,6 +16,7 @@ Geverifieerd op **2026-09-21** tegen het npm-register en de installeerbare pakke
 | postmark                    | 5.1.0                  | Officiële Node.js SDK.                                                                         |
 | @anthropic-ai/sdk           | 0.127.0                | Officiële SDK. Modelnaam via env, niet hardcoded.                                              |
 | sharp                       | 0.35.4                 | Afbeeldingsverwerking (installatie op server controleren).                                     |
+| multer                      | 2.4.0                  | Multipart-uploads (publieke uploadpagina); geheugenopslag, MIME wordt server-side gesniffed.   |
 | Vitest                      | 5.0.1                  | Unit + integratie via `projects`.                                                              |
 
 ## ADR-001: Prisma 6.19 in plaats van 7.x
@@ -57,9 +58,16 @@ Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node di
 
 - **Context:** Het model moet actuele webbronnen raadplegen (server-side `web_search`, `web_fetch`) en strikt gestructureerde kandidaten opleveren. De combinatie van `output_config.format` met web search (citaties in de resultaten) is door ons niet tegen de echte API geverifieerd, en we willen bronnen server-side kunnen controleren.
 - **Besluit:** fase 1 = research met alleen zoek-/ophaaltools (streamend, `pause_turn`-hervatting, verbruik per beurt geboekt); fase 2 = extractie zonder tools via `messages.parse` + `zodOutputFormat`; daarna strikte Zod/regelvalidatie en bronverificatie tegen de werkelijk geziene URL's.
-- **Gevolg:** twee aanroepen per run (iets duurder), maar robuust, testbaar met een mock en met een bewaard onderzoek dat een retry niet opnieuw laat betalen. Heroverweeg bij een modelupgrade of als de combinatie in ��n aanroep is bevestigd.
+- **Gevolg:** twee aanroepen per run (iets duurder), maar robuust, testbaar met een mock en met een bewaard onderzoek dat een retry niet opnieuw laat betalen. Heroverweeg bij een modelupgrade of als de combinatie in één aanroep is bevestigd.
 - **Modelnaam** blijft configuratie (`ANTHROPIC_MODEL_LEAD_RESEARCH`, geen default); prijzen staan in `cost.ts` en moeten bij een modelwissel worden gecontroleerd (skill `anthropic-prompt-change`).
 
-## ADR-008: E�n jobrunner via Plesk Scheduled Task
+## ADR-008: Eén jobrunner via Plesk Scheduled Task
 
-E�n taak elke ~10 minuten (`npm run jobs:run`) plant idempotent de dagelijkse jobs in en verwerkt de wachtrij; geen `setInterval` in het webproces en geen aparte HTTP-cron-endpoint (dus `LEAD_GENERATION_CRON_SECRET` is in fase 1 ongebruikt). Build-uitvoer staat onder `dist/server/src/server/` (`rootDir` is de projectroot); `npm run verify` start de gebouwde server als smoke-test.
+Eén taak elke ~10 minuten (`npm run jobs:run`) plant idempotent de dagelijkse jobs in en verwerkt de wachtrij; geen `setInterval` in het webproces en geen aparte HTTP-cron-endpoint (dus `LEAD_GENERATION_CRON_SECRET` is in fase 1 ongebruikt). Build-uitvoer staat onder `dist/server/src/server/` (`rootDir` is de projectroot); `npm run verify` start de gebouwde server als smoke-test.
+
+## ADR-009: Opslagpoort (`StoragePort`) met alleen een lokale implementatie, ffmpeg als los proces
+
+- **Context:** Klantmateriaal (foto/video) moet ergens veilig staan, buiten de document root, met ruimte voor een toekomstige S3-compatibele backend zonder de rest van de app te raken. Videoverwerking vereist ffmpeg/ffprobe, die niet als npm-package meekomen (`fluent-ffmpeg` verpakt de binary zelf niet en voegt alleen een dunne wrapper toe).
+- **Besluit:** een kleine `StoragePort`-interface (`put`/`get`/`getStream`/`delete`/`exists`) met één implementatie (`LocalStorage`, `UPLOAD_STORAGE_DRIVER=local`). ffmpeg/ffprobe worden direct via `node:child_process.spawn` aangeroepen (`FFMPEG_PATH`, leeg = PATH), met een timeout en een harde limiet op de hoeveelheid uitvoer; ontbreekt de binary, dan degradeert de pijplijn gracieus (geen thumbnail/metadata, geen crash).
+- **Gevolg:** de mediapijplijn en de uploadroute weten niets van de opslag-backend; een S3-adapter is een nieuwe klasse achter dezelfde interface. `multer` (`memoryStorage()`) verzamelt geüploade bestanden als Buffer, zodat elk bestand eerst volledig (magic bytes + grootte) gevalideerd kan worden vóórdat er iets naar de opslag of de database gaat.
+- **Heroverweging:** zodra een S3-compatibele bucket beschikbaar is voor klantmateriaal (buiten de scope van fase 1).

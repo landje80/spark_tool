@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { sha256Hex } from '../../shared/security/tokens.js';
+import { ensurePromptVersion as ensureVersion } from '../../shared/database/prompt-version.js';
 import { ExtractionSchema } from './schema.js';
 
 export const LEAD_PROMPT_PURPOSE = 'lead-generation';
@@ -116,32 +116,5 @@ export async function ensurePromptVersion(
 ): Promise<{ id: string; version: number }> {
   const systemText = `${RESEARCH_SYSTEM_PROMPT}\n\n---\n\n${EXTRACT_SYSTEM_PROMPT}`;
   const schemaJson = z.toJSONSchema(ExtractionSchema) as object;
-  const sha256 = sha256Hex(systemText + JSON.stringify(schemaJson));
-
-  const existing = await db.promptVersion.findFirst({
-    where: { purpose: LEAD_PROMPT_PURPOSE, sha256 },
-  });
-  if (existing) {
-    if (!existing.active) {
-      await db.promptVersion.updateMany({
-        where: { purpose: LEAD_PROMPT_PURPOSE },
-        data: { active: false },
-      });
-      await db.promptVersion.update({ where: { id: existing.id }, data: { active: true } });
-    }
-    return { id: existing.id, version: existing.version };
-  }
-  const last = await db.promptVersion.aggregate({
-    where: { purpose: LEAD_PROMPT_PURPOSE },
-    _max: { version: true },
-  });
-  const version = (last._max.version ?? 0) + 1;
-  await db.promptVersion.updateMany({
-    where: { purpose: LEAD_PROMPT_PURPOSE },
-    data: { active: false },
-  });
-  const created = await db.promptVersion.create({
-    data: { purpose: LEAD_PROMPT_PURPOSE, version, systemText, schemaJson, sha256, active: true },
-  });
-  return { id: created.id, version };
+  return ensureVersion(db, LEAD_PROMPT_PURPOSE, systemText, schemaJson);
 }

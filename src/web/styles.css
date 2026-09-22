@@ -955,3 +955,72 @@ html {
   border-color: #e6a19b;
   color: #7a0e08;
 }
+
+/* Fase G: content-/publishingstatussen */
+.badge--draft-approved,
+.badge--draft-published {
+  background: #e9f7ec;
+  border-color: #9bd3a6;
+}
+.badge--draft-changes_requested {
+  background: #fff1e6;
+  border-color: #ffb37a;
+}
+.badge--draft-discarded {
+  background: #eee9e4;
+  color: #4a4038;
+}
+
+.checkgroup {
+  border: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.checkgroup legend {
+  font-weight: 600;
+  width: 100%;
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+.checkgroup__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.mediagrid {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+.mediagrid img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--c-line);
+  display: block;
+}
+.mediagrid__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  border: 1px dashed var(--c-line);
+  /* --c-muted haalt op --c-bg net geen 4.5:1 (WCAG AA); --c-ink-soft is elders op deze achtergrond
+     al de gebruikte tekstkleur en heeft wel voldoende contrast. */
+  color: var(--c-ink-soft);
+  font-size: 0.85rem;
+}
+.mediagrid a {
+  position: relative;
+  display: block;
+}

@@ -33,7 +33,7 @@ Elk item bevat `flags`: `dueToday`, `overdue`, `needsReview`, `draftReady`, `blo
 ## Beveiliging en gelijktijdigheid
 
 - Samenvoegen is onomkeerbaar en vereist `prospect.merge` (MANAGER, ADMIN). Beide rijen worden in vaste id-volgorde vergrendeld; doel mag niet DUPLICATE of geanonimiseerd zijn. Unieke sleutels (domein, KvK) van de bron blijven op de bron staan als het doel er al een heeft.
-- Aanmaken en wijzigen van identiteitsvelden (naam, website, telefoon, KvK, plaats) draaien onder een named lock (`GET_LOCK`): gelijktijdige identieke verzoeken leveren precies ��n prospect. Wijzigen naar een bestaand domein/KvK/telefoon geeft 409 met details.
+- Aanmaken en wijzigen van identiteitsvelden (naam, website, telefoon, KvK, plaats) draaien onder een named lock (`GET_LOCK`): gelijktijdige identieke verzoeken leveren precies één prospect. Wijzigen naar een bestaand domein/KvK/telefoon geeft 409 met details.
 - Statuswijzigingen schrijven alleen als de status nog gelijk is aan de gelezen status; anders 409.
 - Schrijfacties hebben een eigen rate limit (120/min per IP), naast de algemene 300/min.
 - Sessies verlopen na 8 uur inactiviteit en uiterlijk 12 uur na inloggen.

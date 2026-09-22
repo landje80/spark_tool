@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { estimateCostUsd } from '../../integrations/anthropic/cost.js';
 import { getDb } from '../../shared/database/client.js';
+import { safeError } from '../../shared/errors/safe-error.js';
 import { resetDb } from '../../test/helpers.js';
 import {
   MOCK_EXTRACT_USAGE,
@@ -8,7 +9,7 @@ import {
   MockLeadClient,
   candidate,
 } from '../../test/mock-lead-client.js';
-import { runLeadGeneration, safeError, type LeadGenConfig } from './service.js';
+import { runLeadGeneration, type LeadGenConfig } from './service.js';
 
 // Regressietests voor de reviewer-bevindingen van Fase E (races, budget, kosten, hervatten, injectie).
 const db = getDb();

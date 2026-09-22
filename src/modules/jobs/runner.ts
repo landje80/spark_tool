@@ -1,6 +1,6 @@
+import { safeError } from '../../shared/errors/safe-error.js';
 import { logger } from '../../shared/logging/logger.js';
 import { SETTING_LEADGEN_ENABLED, getSetting } from '../../shared/settings.js';
-import { safeError } from '../lead-generation/service.js';
 import { HANDLERS, isLeadGenConfigured, type JobContext } from './handlers.js';
 import { claimNext, completeJob, enqueue, failJob } from './queue.js';
 

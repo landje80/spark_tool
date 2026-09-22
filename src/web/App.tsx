@@ -4,6 +4,8 @@ import { nl } from '../shared/i18n/nl';
 import { BASE, api, logoutRequest, setCsrfToken, type Me } from './api';
 import { AnnounceContext, fmt, usePageTitle } from './lib';
 import { MeContext } from './me';
+import { ContentPage, SubmissionDetailPage } from './pages/Content';
+import { CustomerDetailPage, CustomersPage } from './pages/Customers';
 import { DashboardPage } from './pages/Dashboard';
 import { ProspectDetailPage } from './pages/ProspectDetail';
 import { NewProspectPage } from './pages/ProspectForm';
@@ -35,16 +37,6 @@ function LoginPage() {
         </a>
       </div>
     </main>
-  );
-}
-
-function Placeholder({ title }: { title: string }) {
-  usePageTitle(title);
-  return (
-    <>
-      <h1>{title}</h1>
-      <p className="muted">{nl.common.comingSoon}</p>
-    </>
   );
 }
 
@@ -125,8 +117,10 @@ function Shell({ me }: { me: Me }) {
             <Route path="/prospects/review" element={<ReviewQueuePage />} />
             <Route path="/prospects/:id" element={<ProspectDetailPage />} />
             <Route path="/tasks" element={<TasksPage />} />
-            <Route path="/customers/*" element={<Placeholder title={nl.nav.customers} />} />
-            <Route path="/content/*" element={<Placeholder title={nl.nav.content} />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            <Route path="/content" element={<ContentPage />} />
+            <Route path="/content/:id" element={<SubmissionDetailPage />} />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

@@ -167,6 +167,35 @@ describe('jobrunner', () => {
     expect(await db.session.findMany({ select: { id: true } })).toEqual([{ id: 'nieuw' }]);
     expect(await db.job.count({ where: { type: 'x' } })).toBe(0);
   });
+
+  it('herstelt een submission die vastgelopen is in PROCESSING (onderhoud)', async () => {
+    const customer = await db.customer.create({
+      data: { name: 'Café De Zwaan', allowedPlatforms: ['LINKEDIN'] },
+    });
+    const stuck = await db.contentSubmission.create({
+      data: { customerId: customer.id, status: 'PROCESSING', consentAt: new Date() },
+    });
+    // updatedAt handmatig terugzetten (Prisma's @updatedAt zou "nu" gebruiken bij een gewone update).
+    await db.$executeRawUnsafe(
+      'UPDATE ContentSubmission SET updatedAt = ? WHERE id = ?',
+      new Date(Date.now() - 40 * 60_000),
+      stuck.id,
+    );
+    const recent = await db.contentSubmission.create({
+      data: { customerId: customer.id, status: 'PROCESSING', consentAt: new Date() },
+    });
+    await enqueue(db, { type: 'maintenance', dedupeKey: 'm2' });
+    await processJobs({ db, env: env(), now: () => new Date() }, { workerId: 't' });
+
+    expect((await db.contentSubmission.findUniqueOrThrow({ where: { id: stuck.id } })).status).toBe(
+      'FAILED',
+    );
+    expect(
+      (await db.contentSubmission.findUniqueOrThrow({ where: { id: recent.id } })).status,
+    ).toBe(
+      'PROCESSING', // te kort geleden geclaimd: nog niet als vastgelopen behandeld
+    );
+  });
 });
 
 describe('dagelijkse planning', () => {

@@ -77,3 +77,17 @@ export interface LeadResearchClient {
   research(input: ResearchInput): Promise<ResearchResult>;
   extract<T>(input: ExtractInput<T>): Promise<ExtractResult<T>>;
 }
+
+/**
+ * Poort voor een enkelvoudige gestructureerde aanroep zonder tools (conceptmails, contentconcepten).
+ * In tests altijd vervangen door een mock; nooit een echte aanroep.
+ */
+export interface StructuredClient {
+  generate<T>(input: {
+    model: string;
+    system: string;
+    user: string;
+    schema: z.ZodType<T>;
+    maxTokens: number;
+  }): Promise<T | null>;
+}

@@ -8,8 +8,11 @@ Browser ── https://spark.nicenext.nl/tool ──> Apache (Plesk) ──> Pas
                           React SPA (dist/web) <──────────────────┤
                           /tool/api/*  (JSON, sessie + CSRF)      │
                           /tool/auth/* (Entra OIDC)               ├── MySQL (Prisma)
-                          /tool/health                            ├── Postmark (uitgaand + webhooks)
-                                                                  ├── Anthropic (leadgeneratie, content)
+                          /tool/upload/:token (publiek, klant)    ├── Postmark (uitgaand + webhooks)
+                          /tool/unsubscribe/:token (publiek)      ├── Anthropic (leadgeneratie, content)
+                          /tool/webhooks/postmark (publiek)       │
+                          /tool/health                            │
+                                                                  │
                           Plesk Scheduled Task ──> job runner ────┴── private opslag (buiten docroot)
 ```
 
@@ -17,14 +20,19 @@ Browser ── https://spark.nicenext.nl/tool ──> Apache (Plesk) ──> Pas
 
 - `config/` — Zod-gevalideerde omgeving (`env.ts`); faalt snel zonder secrets te tonen.
 - `server/` — Express-app, security-headers, sessies, routing onder het basispad.
-- `modules/auth` — `access.ts` (toegangsbeslissing, puur en getest), sessiestore, middleware (`requirePermission`, CSRF), routes.
-- `modules/prospects` — normalisatie, deduplicatie, statusmachine (puur en getest). API/services volgen in Fase D.
+- `modules/auth` — `access.ts` (toegangsbeslissing, puur en getest), sessiestore, middleware (`requirePermission`/`requireAnyPermission`, CSRF), routes.
+- `modules/prospects` — normalisatie, deduplicatie, statusmachine, CRM-API en -schermen.
+- `modules/lead-generation` — tweefasen leadonderzoek (web search + extractie), reviewqueue.
+- `modules/outreach` — conceptmails, verzenden (Postmark), webhooks, suppressie.
+- `modules/customers` — klantbeheer, prospect→klant-conversie.
+- `modules/content-intake` — merkprofiel, uploadlinks (publieke uploadpagina), submission-intake.
+- `modules/media-processing` — sharp/ffmpeg-pijplijn met gracieuze degradatie.
+- `modules/publishing` — AI-conceptgeneratie, reviewworkflow per platform, publisher-adapter (fase 1: uitgeschakeld).
+- `modules/jobs` — jobwachtrij (`Job`-tabel), runner, geplande dagelijkse taken.
 - `modules/audit` — `audit()` schrijft naar `AuditLog`.
-- `integrations/microsoft` — `EntraClient` (MSAL Node).
-- `shared/` — database, security (permissies, tokens), logging (pino met redactie), errors, i18n (`nl.ts`).
+- `integrations/microsoft` — `EntraClient` (MSAL Node); `integrations/postmark`, `integrations/anthropic`, `integrations/storage` — vervangbare poorten naar externe diensten/opslag.
+- `shared/` — database (client, named locks, sessiestore, prompt-versies), security (permissies, tokens), logging (pino met redactie), errors, i18n (`nl.ts`), http (gedeelde publieke-paginaopmaak).
 - `web/` — React-app, mobile-first, NiceNext-huisstijl, teksten uit `shared/i18n`.
-
-Geplande modules (Fase D–G): lead-generation, outreach, customers, content-intake, media-processing, publishing, jobs.
 
 ## Routing onder `/tool`
 
@@ -51,11 +59,11 @@ Entra-app-registratie: redirect-URI `https://spark.nicenext.nl/tool/auth/callbac
 
 ## Status
 
-| Fase | Onderdeel                    | Status                                                                                                                                                                                                                                                            |
-| ---- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C    | Fundament, auth, shell       | Gebouwd, getest                                                                                                                                                                                                                                                   |
-| D    | CRM (API + schermen)         | Gebouwd; 48 integratietests op MariaDB; UI handmatig gecontroleerd (desktop + mobiel); security-, database- en accessibility-review verwerkt (zie security-design.md voor bewust geaccepteerde punten). Nog niet: klant-conversie (Fase G), outreach-tab (Fase F) |
-| E    | Leadgeneratie                | Gebouwd en getest met een mock (104 integratietests). **Nog niet met een echte API-sleutel gedraaid** (zie lead-generation.md)                                                                                                                                    |
-| F    | Outreach + webhooks          | **Nog te bouwen**                                                                                                                                                                                                                                                 |
-| G    | Content/uploads/media/review | **Nog te bouwen**                                                                                                                                                                                                                                                 |
-| H    | Deployment-scripts           | Deels                                                                                                                                                                                                                                                             |
+| Fase | Onderdeel                    | Status                                                                                                                                                                                                                                                         |
+| ---- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C    | Fundament, auth, shell       | Gebouwd, getest                                                                                                                                                                                                                                                |
+| D    | CRM (API + schermen)         | Gebouwd, getest (integratietests op MariaDB); UI handmatig gecontroleerd (desktop + mobiel); security-, database- en accessibility-review verwerkt (zie security-design.md voor bewust geaccepteerde punten)                                                   |
+| E    | Leadgeneratie                | Gebouwd en getest met een mock. **Nog niet met een echte API-sleutel gedraaid** (zie lead-generation.md)                                                                                                                                                       |
+| F    | Outreach + webhooks          | Gebouwd en getest (zie outreach.md)                                                                                                                                                                                                                            |
+| G    | Klanten/content/media/review | Gebouwd en getest (sjabloon-schrijver in tests, geen echte AI-aanroep); mediapijplijn getest met echte sharp-verwerking; ffmpeg-pad degradeert gracieus zonder de binary (zie content-and-publishing.md). Automatisch publiceren naar sociale media blijft uit |
+| H    | Deployment-scripts           | Deels                                                                                                                                                                                                                                                          |

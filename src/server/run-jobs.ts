@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { hostname } from 'node:os';
 import { getEnv } from '../config/env.js';
+import { createStorage } from '../integrations/storage/index.js';
 import { processJobs, scheduleDailyJobs } from '../modules/jobs/runner.js';
 import { getDb } from '../shared/database/client.js';
 import { logger } from '../shared/logging/logger.js';
@@ -13,7 +14,7 @@ import { logger } from '../shared/logging/logger.js';
 async function main(): Promise<void> {
   const env = getEnv();
   const db = getDb();
-  const ctx = { db, env, now: () => new Date() };
+  const ctx = { db, env, now: () => new Date(), storage: createStorage(env) };
   const scheduled = await scheduleDailyJobs(ctx);
   const summary = await processJobs(ctx, { workerId: `${hostname()}:${process.pid}` });
   logger.info({ scheduled, summary }, 'Jobrunner klaar');

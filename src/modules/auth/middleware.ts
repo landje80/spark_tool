@@ -42,6 +42,17 @@ export function requirePermission(permission: Permission): RequestHandler {
   };
 }
 
+/** Zoals `requirePermission`, maar geslaagd zodra één van de gegeven rechten aanwezig is. */
+export function requireAnyPermission(permissions: readonly Permission[]): RequestHandler {
+  return (req, _res, next) => {
+    if (!req.user) return next(new AppError('UNAUTHENTICATED', 'Niet ingelogd'));
+    if (!permissions.some((p) => roleHas(req.user!.role, p))) {
+      return next(new AppError('FORBIDDEN', `Recht ontbreekt: ${permissions.join(' of ')}`));
+    }
+    next();
+  };
+}
+
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** CSRF: synchronizer-token in de sessie, meegestuurd als x-csrf-token, plus Origin-controle. */

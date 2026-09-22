@@ -15,8 +15,11 @@ import {
   type UserRef,
 } from '../lib';
 import { useCan } from '../me';
+import { PlatformPicker } from './Customers';
 import { OutreachSection, type DraftRow, type EmailRow } from './Outreach';
 import { ProspectForm } from './ProspectForm';
+
+const tc = nl.convert;
 
 const t = nl.crm.detail;
 
@@ -378,11 +381,50 @@ function MergeSection({ d, onDone }: { d: Detail; onDone: () => void }) {
   );
 }
 
+function ConvertSection({ d }: { d: Detail }) {
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  async function convert(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    const allowedPlatforms = new FormData(e.currentTarget).getAll('allowedPlatforms').map(String);
+    try {
+      const customer = await send<{ id: string }>(
+        'POST',
+        `/prospects/${d.id}/convert-to-customer`,
+        {
+          allowedPlatforms,
+        },
+      );
+      navigate(`/customers/${customer.id}`);
+    } catch {
+      setError(tc.failed);
+      setSaving(false);
+    }
+  }
+  return (
+    <section className="card" aria-labelledby="h-convert">
+      <h2 id="h-convert">{tc.title}</h2>
+      <p className="muted">{fmt(tc.intro, { name: d.companyName })}</p>
+      {error && <ErrorNote message={error} />}
+      <form onSubmit={(e) => void convert(e)} className="form">
+        <PlatformPicker name="allowedPlatforms" defaultValue={['LINKEDIN']} />
+        <button className="btn" type="submit" disabled={saving}>
+          {tc.confirm}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 export function ProspectDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const canWrite = useCan('prospect.write');
   const canMerge = useCan('prospect.merge');
+  const canConvert = useCan('customer.manage');
   const canPrepare = useCan('outreach.prepare');
   const canSend = useCan('outreach.send');
   const {
@@ -539,6 +581,7 @@ export function ProspectDetailPage() {
       <TasksSection d={d} onDone={reload} canWrite={canWrite} />
       <ActivitySection d={d} onDone={reload} canWrite={canWrite} />
       {canMerge && <MergeSection d={d} onDone={reload} />}
+      {canConvert && d.allowedTransitions.includes('CUSTOMER') && <ConvertSection d={d} />}
     </>
   );
 }

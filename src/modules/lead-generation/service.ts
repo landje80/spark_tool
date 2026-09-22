@@ -9,6 +9,7 @@ import {
 } from '../../integrations/anthropic/types.js';
 import { PROSPECT_WRITE_LOCK, withNamedLock } from '../../shared/database/lock.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import { safeError } from '../../shared/errors/safe-error.js';
 import { logger } from '../../shared/logging/logger.js';
 import { startOfDay } from '../../shared/time.js';
 import { audit } from '../audit/audit.js';
@@ -73,18 +74,6 @@ const ymd = (d: Date, tz: string): string =>
  * Foutmelding voor opslag en weergave. Prisma-fouten bevatten queryargumenten (bedrijfsgegevens) en worden
  * daarom teruggebracht tot naam + code; API-sleutels en autorisatieheaders worden altijd gemaskeerd.
  */
-export function safeError(err: unknown): string {
-  if (!(err instanceof Error)) return 'Onbekende fout';
-  const code = (err as { code?: unknown }).code;
-  if (err.name.startsWith('Prisma') || (typeof code === 'string' && /^P\d{4}$/.test(code))) {
-    return `${err.name}${typeof code === 'string' ? ` (${code})` : ''}`;
-  }
-  return `${err.name}: ${err.message}`
-    .replace(/sk-ant-[A-Za-z0-9_-]+/g, '[REDACTED]')
-    .replace(/(x-api-key|authorization)\s*[:=]?\s*\S+/gi, '$1: [REDACTED]')
-    .slice(0, 500);
-}
-
 export async function spentToday(
   db: Pick<Prisma.TransactionClient, 'leadGenerationRun'>,
   tz: string,
