@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { requireAnyPermission, requirePermission } from '../auth/middleware.js';
 import { parseInput } from '../../shared/validation/parse.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { advanceSubmission, markDraftPublished, setDraftStatus, updateDraft } from './review.js';
 import {
   draftEditSchema,

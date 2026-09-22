@@ -2,7 +2,7 @@ import type { BrandProfile, Prisma, PrismaClient } from '@prisma/client';
 import { withNamedLock } from '../../shared/database/lock.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { audit } from '../audit/audit.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 
 /**
  * Maakt een nieuwe, geversioneerde merkprofielversie aan. Eerdere versies blijven bewaard (voor

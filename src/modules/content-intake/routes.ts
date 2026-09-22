@@ -6,7 +6,7 @@ import type { StoragePort } from '../../integrations/storage/types.js';
 import { requireAnyPermission, requirePermission } from '../auth/middleware.js';
 import { parseInput } from '../../shared/validation/parse.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { activateBrandProfile, createBrandProfileVersion } from './brand.js';
 import { brandProfileCreateSchema, uploadLinkCreateSchema } from './schemas.js';
 import { createUploadLink, revokeUploadLink } from './upload-links.js';

@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { requireAnyPermission, requirePermission } from '../auth/middleware.js';
 import { parseInput } from '../../shared/validation/parse.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import {
   convertProspectSchema,
   customerCreateSchema,

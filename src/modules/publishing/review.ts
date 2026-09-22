@@ -8,7 +8,7 @@ import type {
 import { withNamedLock } from '../../shared/database/lock.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { audit } from '../audit/audit.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { assertTransitionDraft, recalcSubmissionStatus } from './status.js';
 
 type Db = Prisma.TransactionClient;

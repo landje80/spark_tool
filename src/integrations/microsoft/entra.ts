@@ -1,8 +1,24 @@
 import { ConfidentialClientApplication, CryptoProvider } from '@azure/msal-node';
 import type { Env } from '../../config/env.js';
-import type { IdClaims } from '../../modules/auth/access.js';
 
 const SCOPES = ['openid', 'profile', 'email'];
+
+/** Ruwe vorm van een Entra ID-tokenclaims-set (MSAL geeft dit als een los object terug, geen eigen
+ *  type). Leeft hier, bij de poort die de token daadwerkelijk ophaalt, niet in `modules/auth`: een
+ *  integratie mag niet van het domeinmodel van zijn consument afhangen. */
+export interface IdTokenClaims {
+  tid?: string;
+  oid?: string;
+  aud?: string | string[];
+  iss?: string;
+  nonce?: string;
+  name?: string;
+  preferred_username?: string;
+  email?: string;
+  groups?: string[];
+  /** Aanwezig bij groepen-overage: groepenlijst is dan niet in de token opgenomen. */
+  _claim_names?: Record<string, string>;
+}
 
 export interface AuthStart {
   url: string;
@@ -43,14 +59,14 @@ export class EntraClient {
     return { url, state, nonce, codeVerifier: verifier };
   }
 
-  async complete(code: string, codeVerifier: string): Promise<IdClaims> {
+  async complete(code: string, codeVerifier: string): Promise<IdTokenClaims> {
     const result = await this.msal.acquireTokenByCode({
       code,
       scopes: SCOPES,
       redirectUri: this.env.ENTRA_REDIRECT_URI,
       codeVerifier,
     });
-    return (result.idTokenClaims ?? {}) as IdClaims;
+    return (result.idTokenClaims ?? {}) as IdTokenClaims;
   }
 
   logoutUrl(): string {

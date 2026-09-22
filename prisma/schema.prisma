@@ -231,6 +231,8 @@ model User {
   reviewedDrafts       PublicationDraft[]
   createdUploadLinks   UploadLink[]
   createdBrandProfiles BrandProfile[]
+  sessions             Session[]
+  updatedSettings      AppSetting[]
 
   @@index([role, active])
 }
@@ -251,6 +253,8 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   @@index([expiresAt])
   @@index([userId])
 }
@@ -260,6 +264,8 @@ model AppSetting {
   value     Json
   updatedBy String?
   updatedAt DateTime @updatedAt
+
+  updatedByUser User? @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
 }
 
 // ───────────────────────── CRM ─────────────────────────
@@ -297,15 +303,16 @@ model Prospect {
   archivedAt          DateTime?
   anonymizedAt        DateTime?
 
-  owner      User?              @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  foundByRun LeadGenerationRun? @relation(fields: [foundByRunId], references: [id], onDelete: SetNull)
-  sources    ProspectSource[]
-  socials    SocialProfile[]
-  activities ProspectActivity[]
-  drafts     OutreachDraft[]
-  emails     EmailMessage[]
-  tasks      Task[]
-  customer   Customer?
+  owner               User?              @relation("ProspectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  foundByRun          LeadGenerationRun? @relation(fields: [foundByRunId], references: [id], onDelete: SetNull)
+  sources             ProspectSource[]
+  socials             SocialProfile[]
+  activities          ProspectActivity[]
+  drafts              OutreachDraft[]
+  emails              EmailMessage[]
+  tasks               Task[]
+  customer            Customer?
+  matchedByCandidates LeadCandidate[]
 
   @@unique([normalizedName, city])
   @@index([status, ownerId])
@@ -315,6 +322,7 @@ model Prospect {
   @@index([createdAt])
   @@index([city])
   @@index([archivedAt])
+  @@index([contactEmail])
 }
 
 model ProspectSource {
@@ -388,10 +396,11 @@ model LeadCandidate {
   reviewedAt        DateTime?
   createdAt         DateTime              @default(now())
 
-  run      LeadGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  reviewer User?             @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
+  run             LeadGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  reviewer        User?             @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
+  matchedProspect Prospect?         @relation(fields: [matchedProspectId], references: [id], onDelete: SetNull)
 
-  @@index([status])
+  @@index([status, createdAt])
   @@index([runId])
 }
 

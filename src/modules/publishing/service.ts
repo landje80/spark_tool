@@ -4,7 +4,7 @@ import { withNamedLock } from '../../shared/database/lock.js';
 import { ensurePromptVersion } from '../../shared/database/prompt-version.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { safeError } from '../../shared/errors/safe-error.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { audit } from '../audit/audit.js';
 import { CONCEPT_SYSTEM_PROMPT, CONTENT_PROMPT_PURPOSE, conceptSchemaJson } from './prompt.js';
 import type { ConceptWriter } from './writer.js';

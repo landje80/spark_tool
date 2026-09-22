@@ -2,7 +2,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { PROSPECT_WRITE_LOCK, withNamedLock } from '../../shared/database/lock.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { audit } from '../audit/audit.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { canTransition } from '../prospects/status.js';
 import type { ConvertProspect, CustomerCreate, CustomerUpdate } from './schemas.js';
 

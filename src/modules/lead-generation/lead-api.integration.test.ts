@@ -183,8 +183,14 @@ describe('runs starten en bekijken', () => {
     await db.leadGenerationRun.create({
       data: { runKey: 'r1', status: 'SUCCEEDED', acceptedCount: 4, estimatedCostUsd: 1.2345 },
     });
-    const res = await (await as('VIEWER')).get('/leads/runs');
+    const res = await (await as('MANAGER')).get('/leads/runs');
     expect(res.body.runs[0]).toMatchObject({ acceptedCount: 4, estimatedCostUsd: 1.2345 });
+  });
+
+  it('is alleen zichtbaar met lead.run, niet voor elke rol met prospect.read (kosten-/tokendata)', async () => {
+    expect((await (await as('VIEWER')).get('/leads/runs')).status).toBe(403);
+    expect((await (await as('SALES')).get('/leads/runs')).status).toBe(403);
+    expect((await (await as('CONTENT_EDITOR')).get('/leads/runs')).status).toBe(403);
   });
 });
 

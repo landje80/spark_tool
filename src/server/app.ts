@@ -141,8 +141,24 @@ export function createApp(env: Env, deps: AppDeps = {}): express.Express {
 
   const router = Router();
 
-  // Gezondheid: bewust zonder details; diepe check staat achter autorisatie.
-  router.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  // Gezondheid: bewust zonder details (diepere diagnose staat achter autorisatie op
+  // /api/admin/health), maar wél een echte databasecheck — dit is het enige endpoint dat
+  // `npm run healthcheck` en Plesk/monitoring na een deploy daadwerkelijk aanroepen, dus een
+  // kapotte DATABASE_URL moet hier zichtbaar worden, niet pas bij de eerste ingelogde gebruiker.
+  const healthLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: env.NODE_ENV === 'test' ? 100_000 : 120,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+  });
+  router.get('/health', healthLimiter, async (_req, res) => {
+    try {
+      await db.$queryRaw`SELECT 1`;
+      res.json({ status: 'ok' });
+    } catch {
+      res.status(503).json({ status: 'error' });
+    }
+  });
 
   // Publiek en zonder sessie: Postmark-webhook (Basic Auth), afmeldpagina en mobiele uploadlink.
   router.use(publicPageAssetsRouter());

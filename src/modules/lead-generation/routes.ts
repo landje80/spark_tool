@@ -9,7 +9,7 @@ import { audit } from '../audit/audit.js';
 import { requirePermission } from '../auth/middleware.js';
 import { isLeadGenConfigured } from '../jobs/handlers.js';
 import { enqueue } from '../jobs/queue.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { listPendingCandidates, resolveCandidate } from './review.js';
 import { spentToday } from './service.js';
 
@@ -22,7 +22,9 @@ const actorOf = (req: Request): Actor => ({ id: req.user!.id, ip: req.ip });
 export function leadRouter(env: Env, db: PrismaClient): Router {
   const r = Router();
 
-  r.get('/leads/runs', requirePermission('prospect.read'), async (_req, res) => {
+  // Kosten-/tokengegevens zijn operationele/financiële data; hetzelfde recht als het starten van
+  // een run (niet het basale leesrecht dat elke rol al heeft).
+  r.get('/leads/runs', requirePermission('lead.run'), async (_req, res) => {
     const runs = await db.leadGenerationRun.findMany({ orderBy: { startedAt: 'desc' }, take: 20 });
     res.json({
       runs: runs.map((x) => ({

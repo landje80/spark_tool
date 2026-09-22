@@ -2,6 +2,11 @@
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
 
+// Integratietests hebben een aparte *_test database nodig (TEST_DATABASE_URL); zonder die wordt de
+// stap overgeslagen — maar altijd zichtbaar, nooit stilzwijgend, want "verify geslaagd" mag nooit
+// per ongeluk lezen als "de volledige suite is groen" als dat niet zo is.
+const integrationTestsSkipped = !process.env.TEST_DATABASE_URL;
+
 const steps = [
   ['format', 'npm', ['run', 'format:check']],
   ['lint', 'npm', ['run', 'lint']],
@@ -10,10 +15,7 @@ const steps = [
   ['migrations in git', 'node', ['scripts/verify/check-migrations.mjs']],
   ['onzichtbare tekens', 'node', ['scripts/verify/check-source-chars.mjs']],
   ['test', 'npm', ['run', 'test']],
-  // Integratietests hebben een aparte *_test database nodig (TEST_DATABASE_URL); zonder die wordt de stap overgeslagen.
-  ...(process.env.TEST_DATABASE_URL
-    ? [['test:integration', 'npm', ['run', 'test:integration']]]
-    : []),
+  ...(integrationTestsSkipped ? [] : [['test:integration', 'npm', ['run', 'test:integration']]]),
   ['build', 'npm', ['run', 'build']],
   ['smoke gebouwde server', 'node', ['scripts/verify/smoke-built.mjs']],
   ['security audit', 'node', ['scripts/verify/audit-deps.mjs']],
@@ -31,4 +33,11 @@ for (const [name, cmd, args] of steps) {
     process.exit(r.status ?? 1);
   }
 }
-console.log('\n✔ verify geslaagd');
+if (integrationTestsSkipped) {
+  console.warn(
+    '\n⚠ TEST_DATABASE_URL ontbreekt: integratietests zijn OVERGESLAGEN (zie .env.example).',
+  );
+  console.log('✔ verify geslaagd (gedeeltelijk — zonder integratietests)');
+} else {
+  console.log('\n✔ verify geslaagd');
+}

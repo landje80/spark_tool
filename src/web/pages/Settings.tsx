@@ -144,7 +144,7 @@ export function SettingsPage() {
   const canRun = useCan('lead.run');
   const announce = useAnnounce();
   const integrations = useApi<Integrations>(canManage ? '/admin/integrations' : null);
-  const runs = useApi<{ runs: Run[] }>('/leads/runs');
+  const runs = useApi<{ runs: Run[] }>(canRun ? '/leads/runs' : null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const i = integrations.data;
@@ -225,31 +225,33 @@ export function SettingsPage() {
           </>
         )}
         {canRun && (
-          <button className="btn" onClick={() => void runNow()}>
-            {t.runNow}
-          </button>
+          <>
+            <button className="btn" onClick={() => void runNow()}>
+              {t.runNow}
+            </button>
+            <h3>{t.runs}</h3>
+            {runs.loading && <Loading />}
+            {runs.data && runs.data.runs.length === 0 && <p className="muted">{t.noRuns}</p>}
+            <ul className="plain">
+              {runs.data?.runs.map((r) => (
+                <li key={r.id}>
+                  <strong>{fmtDateTime(r.startedAt)}</strong> · {r.status} ·{' '}
+                  {fmt(t.runSummary, {
+                    acc: r.acceptedCount,
+                    dup: r.duplicateCount,
+                    rev: r.reviewCount,
+                  })}
+                  <div className="muted small">
+                    {t.cost}: {usd(r.estimatedCostUsd)} · {t.tokens}:{' '}
+                    {r.inputTokens.toLocaleString('nl-NL')} /{' '}
+                    {r.outputTokens.toLocaleString('nl-NL')} · {t.searches}: {r.webSearchRequests}
+                  </div>
+                  {r.errorMessage && <div className="muted small">{r.errorMessage}</div>}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
-        <h3>{t.runs}</h3>
-        {runs.loading && <Loading />}
-        {runs.data && runs.data.runs.length === 0 && <p className="muted">{t.noRuns}</p>}
-        <ul className="plain">
-          {runs.data?.runs.map((r) => (
-            <li key={r.id}>
-              <strong>{fmtDateTime(r.startedAt)}</strong> · {r.status} ·{' '}
-              {fmt(t.runSummary, {
-                acc: r.acceptedCount,
-                dup: r.duplicateCount,
-                rev: r.reviewCount,
-              })}
-              <div className="muted small">
-                {t.cost}: {usd(r.estimatedCostUsd)} · {t.tokens}:{' '}
-                {r.inputTokens.toLocaleString('nl-NL')} / {r.outputTokens.toLocaleString('nl-NL')} ·{' '}
-                {t.searches}: {r.webSearchRequests}
-              </div>
-              {r.errorMessage && <div className="muted small">{r.errorMessage}</div>}
-            </li>
-          ))}
-        </ul>
       </section>
 
       {!canManage && <p className="muted">{t.noAccess}</p>}

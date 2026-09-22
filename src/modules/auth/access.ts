@@ -1,16 +1,4 @@
-export interface IdClaims {
-  tid?: string;
-  oid?: string;
-  aud?: string | string[];
-  iss?: string;
-  nonce?: string;
-  name?: string;
-  preferred_username?: string;
-  email?: string;
-  groups?: string[];
-  /** Aanwezig bij groepen-overage: groepenlijst is dan niet in de token opgenomen. */
-  _claim_names?: Record<string, string>;
-}
+import type { IdTokenClaims } from '../../integrations/microsoft/entra.js';
 
 export interface AccessPolicy {
   tenantId: string;
@@ -29,7 +17,7 @@ const deny = (reason: string): AccessDecision => ({ allowed: false, reason });
  * gebruikers- of groepstoewijzing wordt iedereen geweigerd, ook uit de eigen tenant.
  */
 export function evaluateAccess(
-  claims: IdClaims,
+  claims: IdTokenClaims,
   policy: AccessPolicy,
   expectedNonce: string,
 ): AccessDecision {

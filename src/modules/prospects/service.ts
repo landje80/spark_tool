@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient, ProspectStatus } from '@prisma/client';
 import { PROSPECT_WRITE_LOCK, withNamedLock } from '../../shared/database/lock.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { startOfDay, startOfNextDay } from '../../shared/time.js';
 import { audit } from '../audit/audit.js';
 import { findDuplicates, type CandidateIdentity, type DuplicateMatch } from './dedupe.js';
@@ -13,10 +14,7 @@ import {
 import type { ListQuery, ProspectCreate, ProspectUpdate } from './schemas.js';
 import { allowedTransitions, assertTransition } from './status.js';
 
-export interface Actor {
-  id: string;
-  ip?: string | null;
-}
+export type { Actor };
 
 /** Statussen waarin geen opvolging meer nodig is (dus nooit "achterstallig"). */
 export const CLOSED_STATUSES: readonly ProspectStatus[] = [
@@ -81,7 +79,7 @@ export async function findMatches(
   if (or.length === 0) return [];
 
   const rows = await db.prospect.findMany({
-    where: { OR: or, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    where: { OR: or, anonymizedAt: null, ...(excludeId ? { id: { not: excludeId } } : {}) },
     take: 500,
     select: {
       id: true,

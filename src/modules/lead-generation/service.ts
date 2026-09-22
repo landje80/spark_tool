@@ -271,6 +271,7 @@ export async function runLeadGeneration(
       };
     } else {
       const known = await db.prospect.findMany({
+        where: { anonymizedAt: null },
         select: { domain: true, companyName: true },
         orderBy: { createdAt: 'desc' },
         take: 400,

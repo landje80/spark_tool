@@ -5,7 +5,7 @@ import { audit } from '../audit/audit.js';
 import { requirePermission } from '../auth/middleware.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { parseInput } from '../../shared/validation/parse.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 import { hasLineBreaks, paragraphsOf } from './render.js';
 import {
   createDraft,

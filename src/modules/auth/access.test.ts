@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateAccess, type AccessPolicy, type IdClaims } from './access.js';
+import type { IdTokenClaims } from '../../integrations/microsoft/entra.js';
+import { evaluateAccess, type AccessPolicy } from './access.js';
 
 const policy: AccessPolicy = {
   tenantId: 'tenant-1',
@@ -7,7 +8,7 @@ const policy: AccessPolicy = {
   allowedGroupIds: ['group-a'],
   allowedUserIds: ['user-x'],
 };
-const base: IdClaims = {
+const base: IdTokenClaims = {
   tid: 'tenant-1',
   aud: 'client-1',
   iss: 'https://login.microsoftonline.com/tenant-1/v2.0',

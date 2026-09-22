@@ -2,7 +2,7 @@ import type { PrismaClient, UploadLink } from '@prisma/client';
 import { AppError } from '../../shared/errors/app-error.js';
 import { generateToken, sha256Hex } from '../../shared/security/tokens.js';
 import { audit } from '../audit/audit.js';
-import type { Actor } from '../prospects/service.js';
+import type { Actor } from '../../shared/security/actor.js';
 
 export interface CreateUploadLinkInput {
   campaign: string | null;
