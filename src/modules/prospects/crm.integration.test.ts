@@ -194,6 +194,18 @@ describe('prospect bewerken', () => {
   it('geeft 404 voor een onbekende prospect', async () => {
     expect((await sales.send('patch', '/prospects/onbekend', { city: 'Epe' })).status).toBe(404);
   });
+
+  it('twee gelijktijdige identiteitswijzigingen naar hetzelfde domein leveren maar één winnaar op', async () => {
+    // touchesIdentity gebruikt PROSPECT_WRITE_LOCK; zonder die lock zouden beide PATCHes de
+    // duplicaatcheck (findMatches) tegelijk kunnen doorstaan, ieder vóórdat de ander zijn nieuwe
+    // domein heeft weggeschreven, en zo allebei slagen.
+    const a = (await create(sales, { companyName: 'Eerste BV', website: 'eerste.nl' })).body;
+    const b = (await create(sales, { companyName: 'Tweede BV', website: 'tweede.nl' })).body;
+    const patch = (id: string) =>
+      sales.send('patch', `/prospects/${id}`, { website: 'https://gedeeld.nl' });
+    const [r1, r2] = await Promise.all([patch(a.id), patch(b.id)]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+  });
 });
 
 describe('statusovergangen', () => {

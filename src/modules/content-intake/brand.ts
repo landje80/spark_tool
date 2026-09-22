@@ -61,16 +61,21 @@ export async function activateBrandProfile(
   if (!profile || profile.customerId !== customerId) {
     throw new AppError('NOT_FOUND', 'Merkprofielversie niet gevonden');
   }
-  return db.$transaction(async (tx) => {
-    await tx.brandProfile.updateMany({ where: { customerId }, data: { active: false } });
-    const updated = await tx.brandProfile.update({ where: { id }, data: { active: true } });
-    await audit(tx, {
-      actorId: actor.id,
-      action: 'content.brand_profile.activate',
-      entityType: 'BrandProfile',
-      entityId: id,
-      ip: actor.ip,
-    });
-    return updated;
-  });
+  return db.$transaction((tx) =>
+    // Zelfde named lock als createBrandProfileVersion: zonder deze zouden twee gelijktijdige
+    // activate-aanroepen voor dezelfde klant elkaars "alles behalve deze op inactief"-stap kunnen
+    // overschrijven en samen twee actieve profielen achterlaten.
+    withNamedLock(tx, `spark:brand-profile:${customerId}`, async () => {
+      await tx.brandProfile.updateMany({ where: { customerId }, data: { active: false } });
+      const updated = await tx.brandProfile.update({ where: { id }, data: { active: true } });
+      await audit(tx, {
+        actorId: actor.id,
+        action: 'content.brand_profile.activate',
+        entityType: 'BrandProfile',
+        entityId: id,
+        ip: actor.ip,
+      });
+      return updated;
+    }),
+  );
 }

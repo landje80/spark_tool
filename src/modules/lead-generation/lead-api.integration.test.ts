@@ -142,6 +142,18 @@ describe('reviewqueue', () => {
     ).toBe(409);
   });
 
+  it('staat gelijktijdige beoordeling van dezelfde kandidaat maar één keer toe', async () => {
+    // De PROSPECT_WRITE_LOCK rond resolveCandidate serialiseert dit; zonder lock zouden twee
+    // gelijktijdige "accept"-aanroepen allebei de "status === PENDING"-check kunnen doorstaan en
+    // twee keer dezelfde prospect proberen aan te maken.
+    const { row } = await pendingCandidate();
+    const sales = await as('SALES');
+    const resolve = () => sales.post(`/leads/candidates/${row.id}/resolve`, { action: 'accept' });
+    const [r1, r2] = await Promise.all([resolve(), resolve()]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+    expect(await db.prospect.count({ where: { companyName: 'Bakkerij Smid' } })).toBe(1);
+  });
+
   it('vereist schrijfrecht en valideert de actie', async () => {
     const { row } = await pendingCandidate();
     expect(

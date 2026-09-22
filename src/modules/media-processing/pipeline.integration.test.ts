@@ -82,6 +82,22 @@ describe('processMediaAsset (echte sharp-verwerking)', () => {
     expect(children).toHaveLength(2); // geen duplicaten na de tweede aanroep
   });
 
+  it('twee gelijktijdige aanroepen op dezelfde asset maken de afgeleiden maar één keer aan', async () => {
+    // Zonder de named lock rond de check-en-verwerk-stap in processMediaAsset zouden twee
+    // gelijktijdige aanroepen allebei de niet-atomaire "alreadyProcessed === 0"-check kunnen
+    // doorstaan en dubbele afgeleiden proberen aan te maken.
+    const { submission, asset } = await newSubmissionWithImage();
+    const process = () => processMediaAsset({ db, storage, env: testEnv() }, asset.id);
+    await expect(Promise.all([process(), process()])).resolves.not.toThrow();
+
+    const children = await db.mediaAsset.findMany({
+      where: { submissionId: submission.id, parentId: asset.id },
+    });
+    expect(children).toHaveLength(2); // web + thumbnail, niet 4
+    const original = await db.mediaAsset.findUniqueOrThrow({ where: { id: asset.id } });
+    expect(original.scanStatus).toBe('SKIPPED');
+  });
+
   it('doet niets voor een asset die al een afgeleide is (role !== ORIGINAL)', async () => {
     const { submission, asset } = await newSubmissionWithImage();
     await processMediaAsset({ db, storage, env: testEnv() }, asset.id);

@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { MediaAsset, PrismaClient } from '@prisma/client';
+import type { MediaAsset, Prisma, PrismaClient } from '@prisma/client';
 import type { Env } from '../../config/env.js';
 import type { StoragePort } from '../../integrations/storage/types.js';
+import { withNamedLock } from '../../shared/database/lock.js';
 import { logger } from '../../shared/logging/logger.js';
 import { makeDerivative, readImageMeta } from './image.js';
 import { THUMBNAIL_PRESET, WEB_PRESET } from './presets.js';
@@ -16,11 +17,26 @@ export interface MediaPipelineDeps {
   env: Env;
 }
 
+/** Wat processImage/processVideo/storeChild echt nodig hebben: db mag hier zowel de gewone
+ * PrismaClient (buiten een transactie) als een Prisma.TransactionClient (binnen processMediaAsset's
+ * vergrendelde transactie) zijn — een PrismaClient voldoet structureel al aan deze smallere vorm. */
+interface WriteDeps {
+  db: Prisma.TransactionClient;
+  storage: StoragePort;
+  env: Env;
+}
+
+const assetLock = (assetId: string) => `spark:media-asset:${assetId}`;
+// ffprobe + ffmpeg-thumbnail kunnen elk tot RUN_TIMEOUT_MS (30s) duren, plus sharp-verwerking; ruim
+// boven Prisma's standaard transactietimeout (5s) omdat de hele verwerking binnen de vergrendelde
+// transactie moet blijven (zie processMediaAsset hieronder).
+const PROCESSING_TX_TIMEOUT_MS = 90_000;
+
 const derivativeKey = (original: MediaAsset, variant: string, ext: string): string =>
   `submissions/${original.submissionId}/${original.id}/${variant}.${ext}`;
 
 async function storeChild(
-  deps: MediaPipelineDeps,
+  deps: WriteDeps,
   original: MediaAsset,
   role: 'DERIVATIVE' | 'THUMBNAIL',
   variant: string,
@@ -49,11 +65,7 @@ async function storeChild(
   });
 }
 
-async function processImage(
-  deps: MediaPipelineDeps,
-  asset: MediaAsset,
-  buffer: Buffer,
-): Promise<void> {
+async function processImage(deps: WriteDeps, asset: MediaAsset, buffer: Buffer): Promise<void> {
   const meta = await readImageMeta(buffer);
   if (meta) {
     await deps.db.mediaAsset.update({
@@ -80,11 +92,7 @@ async function processImage(
   }
 }
 
-async function processVideo(
-  deps: MediaPipelineDeps,
-  asset: MediaAsset,
-  buffer: Buffer,
-): Promise<void> {
+async function processVideo(deps: WriteDeps, asset: MediaAsset, buffer: Buffer): Promise<void> {
   // ffmpeg/ffprobe hebben een bestandspad nodig (seeken); dit werkt tegen elke StoragePort-backend
   // omdat we altijd van een Buffer uitgaan, nooit van een lokaal opslagpad.
   const dir = await mkdtemp(path.join(tmpdir(), 'spark-video-'));
@@ -125,26 +133,44 @@ async function processVideo(
  * Verwerkt één origineel medium: metadata + afgeleiden (webvriendelijke versie, thumbnail). Elke stap
  * degradeert gracieus (zie image.ts/video.ts) — een ontbrekende sharp/ffmpeg-installatie op de server
  * laat de submission gewoon doorgaan zonder afgeleiden, en crasht de app nooit.
+ *
+ * De check-en-verwerk-stap staat als geheel onder een named lock op deze asset-id, binnen één
+ * (verlengde) transactie: zonder dat zouden twee gelijktijdige aanroepen (bv. een herhaalde
+ * runTechnicalCheck die overlapt met de job-queue-retry ervan) allebei de niet-atomaire
+ * "alreadyProcessed === 0"-check kunnen doorstaan en dubbel afgeleiden proberen aan te maken.
  */
 export async function processMediaAsset(deps: MediaPipelineDeps, assetId: string): Promise<void> {
-  const asset = await deps.db.mediaAsset.findUnique({ where: { id: assetId } });
+  await deps.db.$transaction(
+    (tx) => withNamedLock(tx, assetLock(assetId), () => processClaimedAsset(deps, tx, assetId)),
+    { timeout: PROCESSING_TX_TIMEOUT_MS },
+  );
+}
+
+async function processClaimedAsset(
+  deps: MediaPipelineDeps,
+  tx: Prisma.TransactionClient,
+  assetId: string,
+): Promise<void> {
+  const inner: WriteDeps = { db: tx, storage: deps.storage, env: deps.env };
+  const asset = await tx.mediaAsset.findUnique({ where: { id: assetId } });
   if (!asset || asset.role !== 'ORIGINAL') return; // niets te doen (al verwerkt, of geen origineel)
   // Idempotent: een herhaalde aanroep (bv. na een gedeeltelijk mislukte runTechnicalCheck die wordt
   // herhaald) mag geen tweede keer dezelfde afgeleiden proberen aan te maken — dat zou stuklopen op
   // de unieke opslagsleutel. Al verwerkt (er bestaan al kinderen) → alleen scanStatus bevestigen.
-  const alreadyProcessed = await deps.db.mediaAsset.count({ where: { parentId: asset.id } });
+  // Deze check is dankzij de lock hierboven nu wel echt atomair t.o.v. een gelijktijdige aanroep.
+  const alreadyProcessed = await tx.mediaAsset.count({ where: { parentId: asset.id } });
   if (alreadyProcessed > 0) {
     if (asset.scanStatus !== 'SKIPPED') {
-      await deps.db.mediaAsset.update({ where: { id: asset.id }, data: { scanStatus: 'SKIPPED' } });
+      await tx.mediaAsset.update({ where: { id: asset.id }, data: { scanStatus: 'SKIPPED' } });
     }
     return;
   }
   const buffer = await deps.storage.get(asset.storageKey);
-  if (asset.kind === 'IMAGE') await processImage(deps, asset, buffer);
-  else await processVideo(deps, asset, buffer);
+  if (asset.kind === 'IMAGE') await processImage(inner, asset, buffer);
+  else await processVideo(inner, asset, buffer);
   // Geen echte virusscanner geïntegreerd (zie docs/security/security-design.md); de MIME is al bij
   // binnenkomst met magic bytes gecontroleerd. SKIPPED is een eerlijk signaal, geen valse "CLEAN".
-  await deps.db.mediaAsset.update({ where: { id: asset.id }, data: { scanStatus: 'SKIPPED' } });
+  await tx.mediaAsset.update({ where: { id: asset.id }, data: { scanStatus: 'SKIPPED' } });
 }
 
 /** Verwerkt alle originelen van een submission en zet de status door naar TECHNICAL_CHECK. */

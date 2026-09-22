@@ -291,4 +291,42 @@ describe('merkprofiel', () => {
     expect(profiles.filter((p) => p.active)).toHaveLength(1);
     expect(profiles.find((p) => p.active)!.version).toBe(2);
   });
+
+  it('twee gelijktijdige nieuwe versies krijgen geen dubbel volgnummer en laten maar één actief', async () => {
+    const a = app();
+    const customer = await newCustomer();
+    const c = await as('MANAGER', a);
+    const create = () =>
+      c.post(`/customers/${customer.id}/brand-profiles`, {
+        data: { toneOfVoice: 'x' },
+        activate: true,
+      });
+    const [r1, r2] = await Promise.all([create(), create()]);
+    expect([r1.status, r2.status]).toEqual([201, 201]);
+    expect([r1.body.version, r2.body.version].sort()).toEqual([1, 2]);
+
+    const profiles = await db.brandProfile.findMany({ where: { customerId: customer.id } });
+    expect(profiles.filter((p) => p.active)).toHaveLength(1);
+  });
+
+  it('twee gelijktijdige activate-aanroepen op verschillende versies laten maar één actief', async () => {
+    const a = app();
+    const customer = await newCustomer();
+    const c = await as('MANAGER', a);
+    const v1 = await c.post(`/customers/${customer.id}/brand-profiles`, {
+      data: { toneOfVoice: 'formeel' },
+      activate: true,
+    });
+    const v2 = await c.post(`/customers/${customer.id}/brand-profiles`, {
+      data: { toneOfVoice: 'vriendelijk' },
+      activate: false,
+    });
+    const activate = (id: string) =>
+      c.post(`/customers/${customer.id}/brand-profiles/${id}/activate`);
+    const [r1, r2] = await Promise.all([activate(v1.body.id), activate(v2.body.id)]);
+    expect([r1.status, r2.status]).toEqual([200, 200]);
+
+    const profiles = await db.brandProfile.findMany({ where: { customerId: customer.id } });
+    expect(profiles.filter((p) => p.active)).toHaveLength(1);
+  });
 });

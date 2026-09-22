@@ -25,6 +25,34 @@ async function loadDraft(db: Db, id: string): Promise<PublicationDraft> {
   return draft;
 }
 
+/**
+ * Voert een guarded `updateMany` (WHERE bevat de eerder gelezen status als claim) uit en gooit
+ * `onConflict()` zodra die de rij niet raakt (claim.count !== 1) — de normale, verwachte uitkomst
+ * van een verloren race tegen een gelijktijdige wijziging.
+ *
+ * Daarnaast vangt dit een zeldzamere variant van diezelfde race op: de named lock hierboven per
+ * submission voorkomt dat twee reviewacties tegelijk lopen, maar RELEASE_LOCK loopt vóór de COMMIT
+ * van de eerste transactie af, dus de tweede aanroeper kan de lock al krijgen terwijl de rij nog
+ * door de eerste transactie vergrendeld is. MariaDB kan die situatie zelf als een botsing herkennen
+ * en deze UPDATE laten stuklopen op "Record has changed since last read" i.p.v. gewoon 0 rijen te
+ * raken; we behandelen dat identiek aan claim.count !== 1.
+ */
+async function guardedUpdate(
+  run: () => Promise<{ count: number }>,
+  onConflict: () => never,
+): Promise<void> {
+  let claim: { count: number };
+  try {
+    claim = await run();
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('Record has changed since last read')) {
+      onConflict();
+    }
+    throw err;
+  }
+  if (claim.count !== 1) onConflict();
+}
+
 /** Herberekent en schrijft de submissionstatus na een wijziging aan één van de conceptposten. */
 async function syncSubmissionStatus(db: Db, submissionId: string): Promise<void> {
   const [submission, drafts] = await Promise.all([
@@ -52,16 +80,26 @@ async function mutateDraft(
   audit_: (tx: Db, draft: PublicationDraft) => Promise<void>,
 ): Promise<PublicationDraft> {
   return db.$transaction(async (tx) => {
-    const draft = await loadDraft(tx, id);
-    validate(draft);
-    return withNamedLock(tx, submissionLock(draft.submissionId), async () => {
-      const claim = await tx.publicationDraft.updateMany({
-        where: { id, status: draft.status },
-        data: data(draft),
-      });
-      if (claim.count !== 1) {
-        throw new AppError('CONFLICT', 'Deze conceptpost is intussen door iemand anders gewijzigd');
-      }
+    // submissionId ligt vast voor een gegeven conceptpost-id; deze lezing bepaalt alleen wélke
+    // submissionlock we nodig hebben. De status zelf lezen we pas hieronder, ná het verkrijgen van
+    // de lock, zodat validate() tegen een zo vers mogelijke status oordeelt.
+    const submissionId = (await loadDraft(tx, id)).submissionId;
+    return withNamedLock(tx, submissionLock(submissionId), async () => {
+      const draft = await loadDraft(tx, id);
+      validate(draft);
+      await guardedUpdate(
+        () =>
+          tx.publicationDraft.updateMany({
+            where: { id, status: draft.status },
+            data: data(draft),
+          }),
+        () => {
+          throw new AppError(
+            'CONFLICT',
+            'Deze conceptpost is intussen door iemand anders gewijzigd',
+          );
+        },
+      );
       const updated = await tx.publicationDraft.findUniqueOrThrow({ where: { id } });
       await syncSubmissionStatus(tx, draft.submissionId);
       await audit_(tx, updated);
@@ -170,16 +208,19 @@ export async function advanceSubmission(
     return withNamedLock(tx, submissionLock(id), async () => {
       const submission = await tx.contentSubmission.findUnique({ where: { id } });
       if (!submission) throw new AppError('NOT_FOUND', 'Aanlevering niet gevonden');
-      const claim = await tx.contentSubmission.updateMany({
-        where: { id, status: { in: [...allowed[to]] } },
-        data: { status: to },
-      });
-      if (claim.count !== 1) {
-        throw new AppError(
-          'INVALID_TRANSITION',
-          `Overgang ${submission.status} → ${to} is niet toegestaan`,
-        );
-      }
+      await guardedUpdate(
+        () =>
+          tx.contentSubmission.updateMany({
+            where: { id, status: { in: [...allowed[to]] } },
+            data: { status: to },
+          }),
+        () => {
+          throw new AppError(
+            'INVALID_TRANSITION',
+            `Overgang ${submission.status} → ${to} is niet toegestaan`,
+          );
+        },
+      );
       const updated = await tx.contentSubmission.findUniqueOrThrow({ where: { id } });
       await audit(tx, {
         actorId: actor.id,

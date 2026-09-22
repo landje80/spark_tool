@@ -17,6 +17,8 @@ async function as(role: Role) {
     get: (url: string) => request(app).get(`${API}${url}`).set('Cookie', cookie),
     post: (url: string, body: object = {}) =>
       request(app).post(`${API}${url}`).set('Cookie', cookie).set('x-csrf-token', csrf).send(body),
+    patch: (url: string, body: object = {}) =>
+      request(app).patch(`${API}${url}`).set('Cookie', cookie).set('x-csrf-token', csrf).send(body),
   };
 }
 
@@ -100,5 +102,97 @@ describe('prospect naar klant omzetten', () => {
     expect(read.status).toBe(200);
     const write = await c.post('/customers', { name: 'Nieuw', allowedPlatforms: ['LINKEDIN'] });
     expect(write.status).toBe(403);
+  });
+});
+
+describe('klanten rechtstreeks aanmaken/wijzigen (zonder prospect)', () => {
+  it('maakt een klant aan, geeft hem terug in de lijst en op de detailpagina, en logt het', async () => {
+    const m = await as('MANAGER');
+    const created = await m.post('/customers', {
+      name: 'Bakkerij De Korenbloem',
+      contactName: 'Jan',
+      contactEmail: 'jan@korenbloem.test',
+      allowedPlatforms: ['LINKEDIN', 'INSTAGRAM'],
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ name: 'Bakkerij De Korenbloem', status: 'ONBOARDING' });
+
+    const list = await m.get('/customers');
+    expect(list.status).toBe(200);
+    expect(list.body.items.some((c: { id: string }) => c.id === created.body.id)).toBe(true);
+
+    const detail = await m.get(`/customers/${created.body.id}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.name).toBe('Bakkerij De Korenbloem');
+    expect(detail.body.brandProfiles).toEqual([]);
+    expect(detail.body.uploadLinks).toEqual([]);
+
+    const auditEntry = await db.auditLog.findFirst({
+      where: { action: 'customer.create', entityId: created.body.id },
+    });
+    expect(auditEntry).toBeTruthy();
+  });
+
+  it('404 op een onbekende klant-id', async () => {
+    const m = await as('MANAGER');
+    const res = await m.get('/customers/onbekend-id');
+    expect(res.status).toBe(404);
+  });
+
+  it('weigert aanmaken zonder naam of zonder platform (validatie)', async () => {
+    const m = await as('MANAGER');
+    const noName = await m.post('/customers', { name: '', allowedPlatforms: ['LINKEDIN'] });
+    expect(noName.status).toBe(400);
+    const noPlatform = await m.post('/customers', { name: 'X', allowedPlatforms: [] });
+    expect(noPlatform.status).toBe(400);
+    const badEmail = await m.post('/customers', {
+      name: 'X',
+      allowedPlatforms: ['LINKEDIN'],
+      contactEmail: 'geen-email',
+    });
+    expect(badEmail.status).toBe(400);
+  });
+
+  it('wijzigt naam, status en platformen van een bestaande klant', async () => {
+    const m = await as('MANAGER');
+    const created = await m.post('/customers', { name: 'Oud', allowedPlatforms: ['LINKEDIN'] });
+    const patched = await m.patch(`/customers/${created.body.id}`, {
+      name: 'Nieuw',
+      status: 'ACTIVE',
+      allowedPlatforms: ['FACEBOOK', 'TIKTOK'],
+    });
+    expect(patched.status).toBe(200);
+    expect(patched.body).toMatchObject({
+      name: 'Nieuw',
+      status: 'ACTIVE',
+      allowedPlatforms: ['FACEBOOK', 'TIKTOK'],
+    });
+
+    const auditEntry = await db.auditLog.findFirst({
+      where: { action: 'customer.update', entityId: created.body.id },
+    });
+    expect(auditEntry).toBeTruthy();
+  });
+
+  it('404 bij wijzigen van een onbekende klant', async () => {
+    const m = await as('MANAGER');
+    const res = await m.patch('/customers/onbekend-id', { name: 'X' });
+    expect(res.status).toBe(404);
+  });
+
+  it('VIEWER mag klanten niet eens lezen (mist elk leesrecht)', async () => {
+    const v = await as('VIEWER');
+    expect((await v.get('/customers')).status).toBe(403);
+  });
+
+  it('SALES mag lezen (content.upload_link) maar niet aanmaken of wijzigen', async () => {
+    const s = await as('SALES');
+    expect((await s.get('/customers')).status).toBe(200);
+    expect((await s.post('/customers', { name: 'X', allowedPlatforms: ['LINKEDIN'] })).status).toBe(
+      403,
+    );
+    const m = await as('MANAGER');
+    const created = await m.post('/customers', { name: 'X', allowedPlatforms: ['LINKEDIN'] });
+    expect((await s.patch(`/customers/${created.body.id}`, { name: 'Y' })).status).toBe(403);
   });
 });

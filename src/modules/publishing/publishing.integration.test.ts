@@ -207,4 +207,54 @@ describe('handmatige submission-stappen', () => {
     const ok = await c.post(`/submissions/${submission.id}/advance`, { to: 'READY_TO_PUBLISH' });
     expect(ok.status).toBe(200);
   });
+
+  it('twee gelijktijdige advance-aanroepen op dezelfde submission lukken maar één keer', async () => {
+    // De submissionLock + guarded updateMany in advanceSubmission serialiseren dit; zonder dat
+    // zouden beide aanroepen de "status === APPROVED"-check kunnen doorstaan.
+    const { submission } = await newSubmission('DRAFT_READY');
+    await db.contentSubmission.update({
+      where: { id: submission.id },
+      data: { status: 'APPROVED' },
+    });
+    const c = await as('CONTENT_EDITOR');
+    const advance = () =>
+      c.post(`/submissions/${submission.id}/advance`, { to: 'READY_TO_PUBLISH' });
+    const [r1, r2] = await Promise.all([advance(), advance()]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+  });
+});
+
+describe('gelijktijdigheid bij het beoordelen van conceptposten', () => {
+  async function draftsFor(submissionId: string) {
+    const c = await as('CONTENT_EDITOR');
+    await c.post(`/submissions/${submissionId}/generate-concept`);
+    return db.publicationDraft.findMany({ where: { submissionId } });
+  }
+
+  it('twee gelijktijdige goedkeuringen van dezelfde conceptpost lukken maar één keer', async () => {
+    // mutateDraft's submissionLock + guarded updateMany (where: status === gelezen status)
+    // serialiseren statusovergangen; zonder dat zouden beide DRAFT → APPROVED-aanroepen slagen.
+    const { submission } = await newSubmission();
+    const drafts = await draftsFor(submission.id);
+    const c = await as('CONTENT_EDITOR');
+    const approve = () => c.post(`/drafts/${drafts[0]!.id}/status`, { to: 'APPROVED' });
+    const [r1, r2] = await Promise.all([approve(), approve()]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+    expect(
+      (await db.publicationDraft.findUniqueOrThrow({ where: { id: drafts[0]!.id } })).status,
+    ).toBe('APPROVED');
+  });
+
+  it('een goedkeuring en een gelijktijdige tekstwijziging op dezelfde post botsen niet stilzwijgend', async () => {
+    const { submission } = await newSubmission();
+    const drafts = await draftsFor(submission.id);
+    const c = await as('CONTENT_EDITOR');
+    const [approve, edit] = await Promise.all([
+      c.post(`/drafts/${drafts[0]!.id}/status`, { to: 'APPROVED' }),
+      c.patch(`/drafts/${drafts[0]!.id}`, { text: 'Race-tekst', hashtags: [] }),
+    ]);
+    // Beide acties gaan uit van status DRAFT; precies één van de twee claimt de rij, de ander krijgt
+    // een expliciete 409 in plaats van dat de wijziging van de ander stilzwijgend verdwijnt.
+    expect([approve.status, edit.status].sort()).toEqual([200, 409]);
+  });
 });
