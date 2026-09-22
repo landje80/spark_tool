@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import helmet from 'helmet';
 import type { Env } from '../config/env.js';
+import { EntraClient } from '../integrations/microsoft/entra.js';
 import { authRouter } from '../modules/auth/routes.js';
 import { AnthropicStructuredClient } from '../integrations/anthropic/structured-client.js';
 import { PostmarkMailClient } from '../integrations/postmark/client.js';
@@ -41,8 +42,11 @@ import { getDb } from '../shared/database/client.js';
 import { AppError } from '../shared/errors/app-error.js';
 import { publicPageAssetsRouter } from '../shared/http/public-page.js';
 import { t } from '../shared/i18n/index.js';
+import { installBigIntJsonSafety } from '../shared/json-safety.js';
 import { logger } from '../shared/logging/logger.js';
 import { PERMISSIONS, roleHas } from '../shared/security/permissions.js';
+
+installBigIntJsonSafety();
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // dist/server/src/server/app.js -> dist/web ; src/server/app.ts (tsx) -> dist/web
@@ -59,6 +63,7 @@ export interface AppDeps {
   draftWriter?: DraftWriter;
   conceptWriter?: ConceptWriter;
   storage?: StoragePort;
+  entra?: EntraClient;
 }
 
 function defaultMail(env: Env): MailPort {
@@ -190,7 +195,7 @@ export function createApp(env: Env, deps: AppDeps = {}): express.Express {
     standardHeaders: 'draft-8',
     legacyHeaders: false,
   });
-  router.use('/auth', authLimiter, authRouter(env));
+  router.use('/auth', authLimiter, authRouter(env, deps.entra));
 
   const api = Router();
   api.use(

@@ -4,7 +4,10 @@ import { getEnv } from '../config/env.js';
 import { createStorage } from '../integrations/storage/index.js';
 import { processJobs, scheduleDailyJobs } from '../modules/jobs/runner.js';
 import { getDb } from '../shared/database/client.js';
+import { installBigIntJsonSafety } from '../shared/json-safety.js';
 import { logger } from '../shared/logging/logger.js';
+
+installBigIntJsonSafety();
 
 /**
  * Entrypoint voor de Plesk Scheduled Task (bijv. elke 10 minuten):
