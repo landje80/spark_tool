@@ -29,4 +29,4 @@ Beveiliging volgens `docs/security/security-design.md`; deployment volgens `docs
 
 ## Voortgang fase 1 (definitie van klaar, §16)
 
-Zie `docs/architecture/system-design.md` §Status. Stand: fundament, schema, auth/RBAC-basis en shell zijn klaar; CRM-API/UI, leadgeneratie, outreach en content intake zijn **nog niet** gebouwd.
+Zie `docs/architecture/system-design.md` §Status. Stand: fundament/auth/shell, CRM-API/UI, leadgeneratie (nog niet met een echte Anthropic-sleutel gedraaid), outreach en content intake (Fasen C–G) zijn gebouwd en getest. Fase H (daadwerkelijke uitrol naar Plesk) staat klaar maar wacht op echte secrets/serverdata; Fase I (volledige codereview, resterende bevindingen verwerkt, documentatie gesynchroniseerd) is uitgevoerd.

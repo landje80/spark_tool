@@ -2,7 +2,7 @@
 
 CRM, dagelijkse leadgeneratie, outreach en content intake voor Spark. Live: https://spark.nicenext.nl/tool
 
-**Status:** fase 1 in uitvoering. Fundament, databaseschema, Microsoft SSO (single-tenant), RBAC-basis en responsive shell zijn gebouwd en getest. CRM-schermen, leadgeneratie, outreach en content intake zijn nog niet gebouwd. Zie `docs/architecture/system-design.md` (Status).
+**Status:** fase 1 in uitvoering. Fundament/auth/shell, CRM, leadgeneratie, outreach en klanten/content/media/review zijn gebouwd en getest (leadgeneratie nog niet met een echte Anthropic-sleutel gedraaid). Deployment naar Plesk staat klaar maar is nog niet uitgevoerd — wacht op echte secrets/serverdata (Entra, Postmark, Anthropic, Plesk-toegang). Zie `docs/architecture/system-design.md` (Status) voor de volledige fasetabel.
 
 ## Snel starten
 
