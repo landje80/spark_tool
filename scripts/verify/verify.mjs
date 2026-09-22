@@ -8,6 +8,7 @@ const steps = [
   ['typecheck', 'npm', ['run', 'typecheck']],
   ['prisma validate', 'npx', ['prisma', 'validate']],
   ['migrations in git', 'node', ['scripts/verify/check-migrations.mjs']],
+  ['onzichtbare tekens', 'node', ['scripts/verify/check-source-chars.mjs']],
   ['test', 'npm', ['run', 'test']],
   // Integratietests hebben een aparte *_test database nodig (TEST_DATABASE_URL); zonder die wordt de stap overgeslagen.
   ...(process.env.TEST_DATABASE_URL

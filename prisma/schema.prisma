@@ -466,10 +466,11 @@ model EmailMessage {
   prospect Prospect?      @relation(fields: [prospectId], references: [id], onDelete: SetNull)
   draft    OutreachDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
 
-  @@index([prospectId])
+  @@index([prospectId, toEmail])
   @@index([status])
   @@index([toEmail])
   @@index([sentAt])
+  @@index([createdAt, status])
 }
 
 model EmailSuppression {

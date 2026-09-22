@@ -7,6 +7,7 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'INVALID_TRANSITION'
   | 'SUPPRESSED'
+  | 'UPSTREAM_ERROR'
   | 'INTERNAL';
 
 const STATUS: Record<ErrorCode, number> = {
@@ -18,6 +19,7 @@ const STATUS: Record<ErrorCode, number> = {
   INVALID_TRANSITION: 409,
   SUPPRESSED: 409,
   RATE_LIMITED: 429,
+  UPSTREAM_ERROR: 502,
   INTERNAL: 500,
 };
 

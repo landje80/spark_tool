@@ -36,7 +36,13 @@ const schema = z.object({
   POSTMARK_FROM_EMAIL: z.email().optional(),
   POSTMARK_FROM_NAME: z.string().default('Spark'),
   POSTMARK_MESSAGE_STREAM: z.string().default('outbound'),
-  POSTMARK_WEBHOOK_SECRET: z.string().optional(),
+  // Basic Auth-wachtwoord voor de webhook; kort genoeg is te raden/brute-forcen (Postmark biedt geen HMAC).
+  // Leeg/ontbrekend betekent "nog niet geconfigureerd" (zie mailConfigured); alleen een ingevulde waarde
+  // wordt op lengte gecontroleerd.
+  POSTMARK_WEBHOOK_SECRET: z
+    .string()
+    .optional()
+    .refine((v) => !v || v.length >= 32, 'moet minimaal 32 tekens zijn'),
   POSTMARK_INBOUND_DOMAIN: z.string().optional(),
 
   ANTHROPIC_API_KEY: z.string().optional(),

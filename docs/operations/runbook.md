@@ -24,6 +24,7 @@
 2. Auth-problemen: controleer `auth.denied`-regels in `AuditLog` (`reason`).
 3. Jobs: `Job.status = DEAD` → oorzaak in `lastError`, corrigeren, status terug naar `PENDING`.
 4. Ongewenste e-mail: zet suppressie in `EmailSuppression`; controleer `EmailMessage`.
+5. Vastgelopen verzonden e-mail (Instellingen toont "e-mail(s) niet volledig afgerond"): de mail is écht door Postmark bevestigd (`EmailMessage.status = QUEUED` met een `postmarkMessageId`... controleer eerst of die kolom leeg is — dan is de Postmark-aanroep zelf nooit bevestigd en is verder onderzoek nodig), maar de registratie (draft-status, prospectstatus, opvolgtaak) is na drie pogingen mislukt. Herstel handmatig: zet `OutreachDraft.status = 'SENT'`, `Prospect.status = 'EMAILED'` (als van toepassing) en maak zo nodig een opvolgtaak aan; zet daarna `EmailMessage.status = 'SENT'`. Zoek in de logs op `emailMessageId` voor de exacte oorzaak.
 
 ## Onderhoud
 

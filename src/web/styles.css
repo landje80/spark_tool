@@ -798,6 +798,15 @@ a {
 .btn--ghost:hover {
   background: var(--c-surface-alt);
 }
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn:disabled:hover,
+.btn[aria-disabled='true']:hover {
+  background: var(--c-brand);
+}
 .topbar__btn:hover {
   background: rgb(255 255 255 / 0.12);
 }
@@ -905,4 +914,44 @@ html {
 .status-missing {
   color: var(--c-danger);
   font-weight: 700;
+}
+
+/* ───────── Fase F: outreach ───────── */
+.preview,
+.editor {
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin: var(--space-3) 0;
+  background: var(--c-bg);
+}
+.mailbox {
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: 8px;
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-3) 0;
+}
+.mailbox p {
+  margin: 0 0 var(--space-3);
+}
+.full {
+  flex-basis: 100%;
+  margin: 0;
+}
+.badge--mail-delivered {
+  background: #e9f7ec;
+  border-color: #9bd3a6;
+}
+.badge--mail-sent,
+.badge--mail-queued {
+  background: #e7f0fb;
+  border-color: #a5c5ea;
+}
+.badge--mail-bounced,
+.badge--mail-spam_complaint,
+.badge--mail-failed {
+  background: #fdecea;
+  border-color: #e6a19b;
+  color: #7a0e08;
 }

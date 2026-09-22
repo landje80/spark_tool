@@ -15,6 +15,7 @@ import {
   type UserRef,
 } from '../lib';
 import { useCan } from '../me';
+import { OutreachSection, type DraftRow, type EmailRow } from './Outreach';
 import { ProspectForm } from './ProspectForm';
 
 const t = nl.crm.detail;
@@ -72,8 +73,8 @@ interface Detail {
     description: string | null;
     assignee: UserRef | null;
   }[];
-  drafts: { id: string; subject: string; status: string }[];
-  emails: { id: string; subject: string; status: string; sentAt: string | null }[];
+  drafts: DraftRow[];
+  emails: EmailRow[];
 }
 
 function Link2({ url, label }: { url: string; label?: string | null }) {
@@ -382,6 +383,8 @@ export function ProspectDetailPage() {
   const navigate = useNavigate();
   const canWrite = useCan('prospect.write');
   const canMerge = useCan('prospect.merge');
+  const canPrepare = useCan('outreach.prepare');
+  const canSend = useCan('outreach.send');
   const {
     data: d,
     error,
@@ -520,14 +523,18 @@ export function ProspectDetailPage() {
             </>
           )}
         </section>
-        <section className="card" aria-labelledby="h-out">
-          <h2 id="h-out">{t.outreach}</h2>
-          <p className="muted">{t.outreachSoon}</p>
-          <p>
-            {t.drafts}: {d.drafts.length || t.none} · {t.emails}: {d.emails.length || t.none}
-          </p>
-        </section>
       </div>
+
+      <OutreachSection
+        prospectId={d.id}
+        contactEmail={d.contactEmail}
+        drafts={d.drafts}
+        emails={d.emails}
+        canPrepare={canPrepare}
+        canSend={canSend}
+        canWrite={canWrite}
+        onChange={reload}
+      />
 
       <TasksSection d={d} onDone={reload} canWrite={canWrite} />
       <ActivitySection d={d} onDone={reload} canWrite={canWrite} />

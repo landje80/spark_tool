@@ -487,7 +487,16 @@ export async function getProspectDetail(db: PrismaClient, id: string) {
       emails: {
         orderBy: { createdAt: 'desc' },
         take: 20,
-        select: { id: true, subject: true, status: true, sentAt: true, toEmail: true },
+        select: {
+          id: true,
+          subject: true,
+          status: true,
+          sentAt: true,
+          deliveredAt: true,
+          openedAt: true,
+          bounceType: true,
+          toEmail: true,
+        },
       },
       customer: { select: { id: true } },
     },

@@ -7,7 +7,17 @@ import session from 'express-session';
 import helmet from 'helmet';
 import type { Env } from '../config/env.js';
 import { authRouter } from '../modules/auth/routes.js';
+import { AnthropicStructuredClient } from '../integrations/anthropic/structured-client.js';
+import { PostmarkMailClient } from '../integrations/postmark/client.js';
+import { MailError, type MailPort } from '../integrations/postmark/types.js';
 import { leadRouter } from '../modules/lead-generation/routes.js';
+import { publicOutreachRouter } from '../modules/outreach/public-routes.js';
+import { outreachRouter } from '../modules/outreach/routes.js';
+import {
+  AiDraftWriter,
+  TemplateDraftWriter,
+  type DraftWriter,
+} from '../modules/outreach/writer.js';
 import { crmRouter } from '../modules/prospects/routes.js';
 import {
   csrfProtection,
@@ -31,7 +41,35 @@ const WEB_DIR =
     here.includes(`${path.sep}dist${path.sep}`) ? '../../../web' : '../../dist/web',
   );
 
-export function createApp(env: Env): express.Express {
+/** Vervangbare afhankelijkheden (tests injecteren mocks; er wordt in tests nooit echt gemaild). */
+export interface AppDeps {
+  mail?: MailPort;
+  draftWriter?: DraftWriter;
+}
+
+function defaultMail(env: Env): MailPort {
+  if (env.NODE_ENV !== 'test' && env.POSTMARK_SERVER_TOKEN)
+    return new PostmarkMailClient(env.POSTMARK_SERVER_TOKEN);
+  const reason =
+    env.NODE_ENV === 'test'
+      ? 'Testomgeving: echte verzending is niet toegestaan'
+      : 'E-mail is niet geconfigureerd';
+  return {
+    send: () => Promise.reject(new MailError(reason, 'auth')),
+  };
+}
+
+function defaultWriter(env: Env): DraftWriter {
+  if (env.NODE_ENV !== 'test' && env.ANTHROPIC_API_KEY && env.ANTHROPIC_MODEL_CONTENT) {
+    return new AiDraftWriter(
+      new AnthropicStructuredClient(env.ANTHROPIC_API_KEY),
+      env.ANTHROPIC_MODEL_CONTENT,
+    );
+  }
+  return new TemplateDraftWriter();
+}
+
+export function createApp(env: Env, deps: AppDeps = {}): express.Express {
   const app = express();
   const basePath = env.APP_BASE_PATH;
   const origin = new URL(env.APP_BASE_URL).origin;
@@ -80,6 +118,9 @@ export function createApp(env: Env): express.Express {
 
   // Gezondheid: bewust zonder details; diepe check staat achter autorisatie.
   router.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+  // Publiek en zonder sessie: Postmark-webhook (Basic Auth) en afmeldpagina (token in de URL).
+  router.use(publicOutreachRouter(env, db));
 
   router.use(
     session({
@@ -148,6 +189,14 @@ export function createApp(env: Env): express.Express {
   });
   api.use(crmRouter(env, db));
   api.use(leadRouter(env, db));
+  api.use(
+    outreachRouter({
+      db,
+      env,
+      mail: deps.mail ?? defaultMail(env),
+      writer: deps.draftWriter ?? defaultWriter(env),
+    }),
+  );
   api.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'Onbekend endpoint')));
   router.use('/api', api);
 

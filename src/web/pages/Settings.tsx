@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { nl } from '../../shared/i18n/nl';
 import { ApiError, send } from '../api';
 import { ErrorNote, Loading } from '../components';
@@ -51,6 +51,93 @@ function Status({ ok }: { ok: boolean }) {
   );
 }
 
+interface OutreachCfg {
+  configured: boolean;
+  fromEmail: string | null;
+  settings: { dailyLimit: number; trackOpens: boolean; footer: string };
+  footerIsDefault: boolean;
+  stuckQueued: number;
+}
+
+function OutreachSettings() {
+  const o = nl.outreach;
+  const cfg = useApi<OutreachCfg>('/admin/outreach');
+  const announce = useAnnounce();
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  if (cfg.loading || !cfg.data) return <Loading />;
+  const s = cfg.data.settings;
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError('');
+    setSaved(false);
+    const fd = new FormData(e.currentTarget);
+    try {
+      await send('POST', '/admin/outreach', {
+        dailyLimit: Number(fd.get('dailyLimit')),
+        trackOpens: fd.get('trackOpens') === 'on',
+        footer: String(fd.get('footer') ?? '').trim(),
+      });
+      setSaved(true);
+      announce(o.settingsSaved);
+      cfg.reload();
+    } catch {
+      setError(nl.crm.form.fixErrors);
+    }
+  }
+
+  return (
+    <section className="card" aria-labelledby="h-outreach">
+      <h2 id="h-outreach">{o.settingsTitle}</h2>
+      <p className="muted">{o.settingsHelp}</p>
+      {!cfg.data.configured && <p className="alert alert--warn">{o.notConfigured}</p>}
+      {cfg.data.configured && cfg.data.footerIsDefault && (
+        <p className="alert alert--warn">{o.footerDefaultWarning}</p>
+      )}
+      {cfg.data.stuckQueued > 0 && (
+        <p className="alert alert--warn">{fmt(o.stuckQueued, { n: cfg.data.stuckQueued })}</p>
+      )}
+      {error && <ErrorNote message={error} />}
+      {saved && (
+        // Geen role="status": de melding wordt al via de gedeelde live-region (announce) voorgelezen.
+        <p className="notice">{o.settingsSaved}</p>
+      )}
+      <form onSubmit={(e) => void onSubmit(e)} className="form" key={JSON.stringify(s)}>
+        <div className="field">
+          <label htmlFor="o-footer">{o.footer}</label>
+          <textarea
+            id="o-footer"
+            name="footer"
+            rows={3}
+            maxLength={1000}
+            defaultValue={s.footer}
+            required
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="o-limit">{o.dailyLimit}</label>
+          <input
+            id="o-limit"
+            name="dailyLimit"
+            type="number"
+            min={1}
+            max={500}
+            defaultValue={s.dailyLimit}
+            required
+          />
+        </div>
+        <label className="check">
+          <input type="checkbox" name="trackOpens" defaultChecked={s.trackOpens} />
+          {o.trackOpens}
+        </label>
+        <button className="btn" type="submit">
+          {nl.common.save}
+        </button>
+      </form>
+    </section>
+  );
+}
 export function SettingsPage() {
   usePageTitle(t.title);
   const canManage = useCan('settings.manage');
@@ -236,6 +323,7 @@ export function SettingsPage() {
               )}
             </dl>
           </section>
+          <OutreachSettings />
         </>
       )}
     </>
