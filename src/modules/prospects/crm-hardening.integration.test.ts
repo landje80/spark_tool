@@ -4,6 +4,8 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../server/app.js';
 import { getDb } from '../../shared/database/client.js';
 import { login, makeUser, resetDb, testEnv } from '../../test/helpers.js';
+import { convertProspectToCustomer } from '../customers/service.js';
+import { mergeProspects } from './bulk.js';
 
 // Regressietests voor de reviewer-bevindingen (races, merge-validatie, taakeigenaarschap, sessies).
 const db = getDb();
@@ -134,6 +136,58 @@ describe('samenvoegen: rechten en validatie', () => {
     expect(
       (await db.leadCandidate.findUniqueOrThrow({ where: { id: cand.id } })).matchedProspectId,
     ).toBe(a.id);
+  });
+});
+
+describe('atomiciteit bij samenvoegen en omzetten', () => {
+  // Forceert een échte fout diep in de transactie (FK-schending op ProspectActivity.actorId, via een
+  // niet-bestaande actor-id) om te bevestigen dat de héle transactie teruggedraaid wordt — geen halve
+  // samenvoeging/omzetting blijft staan. Zelfde techniek als de webhook-rollbacktest in
+  // outreach/webhooks.integration.test.ts, maar hier via een rechtstreekse serviceaanroep omdat de
+  // actor-id via de HTTP-laag altijd een bestaande ingelogde gebruiker is.
+  const badActor = { id: 'bestaat-niet', ip: null };
+
+  it('draait mergeProspects volledig terug als de afsluitende activiteit niet kan worden gelogd', async () => {
+    const target = (await create(sales, { companyName: 'Doel BV', city: 'Zwolle' })).body;
+    const source = (
+      await create(sales, { companyName: 'Bron BV', website: 'bron.nl', notes: 'oude notitie' })
+    ).body;
+    await db.socialProfile.create({
+      data: {
+        prospectId: source.id,
+        platform: 'LINKEDIN',
+        url: 'https://linkedin.com/company/bron',
+      },
+    });
+
+    await expect(mergeProspects(db, badActor, target.id, source.id)).rejects.toThrow();
+
+    // Niets van de samenvoeging is doorgevoerd: bron nog steeds actief, sociaal profiel nog aan de bron.
+    const src = await db.prospect.findUniqueOrThrow({ where: { id: source.id } });
+    expect(src.status).not.toBe('DUPLICATE');
+    expect(src.archivedAt).toBeNull();
+    const tgt = await db.prospect.findUniqueOrThrow({ where: { id: target.id } });
+    expect(tgt.domain).toBeNull();
+    expect(await db.socialProfile.count({ where: { prospectId: target.id } })).toBe(0);
+    expect(await db.socialProfile.count({ where: { prospectId: source.id } })).toBe(1);
+  });
+
+  it('draait convertProspectToCustomer volledig terug als de afsluitende activiteit niet kan worden gelogd', async () => {
+    const prospect = await db.prospect.create({
+      data: {
+        companyName: 'Kwalificeer BV',
+        normalizedName: 'kwalificeer bv',
+        status: 'QUALIFIED',
+      },
+    });
+
+    await expect(
+      convertProspectToCustomer(db, badActor, prospect.id, { allowedPlatforms: ['LINKEDIN'] }),
+    ).rejects.toThrow();
+
+    expect(await db.customer.count({ where: { prospectId: prospect.id } })).toBe(0);
+    const p = await db.prospect.findUniqueOrThrow({ where: { id: prospect.id } });
+    expect(p.status).toBe('QUALIFIED'); // niet doorgezet naar CUSTOMER
   });
 });
 
