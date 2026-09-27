@@ -1,5 +1,12 @@
 node_modules/
-dist/
+# dist/ zelf mag niet als hele map genegeerd worden (dist/), anders kan git niet meer selectief
+# in dist/web/ kijken voor de uitzondering hieronder — dus dist/* (alleen de directe kinderen).
+dist/*
+# Uitzondering: dist/web wordt lokaal gebouwd en gecommit vóór elke release/deploy, omdat Vite
+# Node >=22.12 vereist om te bouwen maar Plesk (s1.gblict.nl) niet hoger dan 21.7.3 aanbiedt.
+# dist/server blijft wél op de server gebouwd (tsc heeft alleen Node >=14.17 nodig) — zie
+# docs/deployment/plesk-deployment.md.
+!dist/web/
 coverage/
 .env
 .env.*

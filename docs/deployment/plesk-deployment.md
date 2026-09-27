@@ -2,6 +2,24 @@
 
 > Niet uitgevoerd: er is geen toegang tot s1.gblict.nl vanuit de ontwikkelomgeving. Stappen zijn afgeleid uit Plesk/Passenger-documentatie en moeten bij eerste uitrol worden geverifieerd (healthcheck).
 
+## Node-versie: bouwen lokaal, draaien op Plesk
+
+Plesk op s1.gblict.nl biedt Node.js tot en met **21.7.3**; deze app vereist **≥22.12** (`package.json` `engines`). Dat komt uitsluitend door **Vite** (de frontend-bundler, `engines.node: "^20.19.0 || >=22.12.0"`) — Express, Prisma en de gecompileerde servercode zelf hebben niets hogers nodig dan Node 18.
+
+Oplossing: `dist/web/` (de gebouwde frontend) wordt **lokaal** gebouwd en meegecommit in Git, in plaats van op de server. `dist/server/` (de gecompileerde backend, via `tsc`) blijft wél op de server gebouwd — TypeScript's compiler zelf vereist maar Node ≥14.17.
+
+**Bij elke release, vóór je tagt/pusht:**
+
+```bash
+npm run build:web        # bouwt dist/web/ lokaal (hier is Node 22+ beschikbaar)
+git add dist/web
+git commit -m "build: dist/web voor release"
+```
+
+`dist/web/` staat om deze reden expliciet **niet** in `.gitignore` (met uitleg in het bestand zelf), in afwijking van de normale regel dat build-output niet in Git hoort.
+
+De deploy-acties in Plesk (§2 hieronder) draaien daarom **npm run build:server** in plaats van **npm run build**, en **niet** `npm run verify` (die roept intern `vite build` aan, wat op Node 21.7.3 faalt) — `npm run verify` blijft een lokale/pre-push stap, zoals die al voor elke commit in dit project wordt gebruikt.
+
 ## 1. Voorbereiding (eigenaar)
 
 1. **DNS:** A/AAAA-record `spark.nicenext.nl` → IP van s1.gblict.nl (bestaat mogelijk al voor de publieke site — niet wijzigen).
@@ -13,17 +31,16 @@
 ## 2. Applicatie
 
 1. Plesk → Git → repository toevoegen (GitHub, SSH deploy key), branch `main`, deploymentpad `/var/www/vhosts/nicenext.nl/spark-tool` (**buiten** de document root).
-2. Plesk → Node.js: Node-versie ≥22.12 (LTS), Application mode `production`, Application root = deploymentpad, Startup file `dist/server/src/server/index.js`. Zet de omgevingsvariabelen uit `.env.example` (geheimen alleen hier).
+2. Plesk → Node.js: hoogst beschikbare versie (21.7.3 op dit moment — zie "Node-versie" hierboven voor waarom dat oké is), Application mode `production`, Application root = deploymentpad, Startup file `dist/server/src/server/index.js`. Zet de omgevingsvariabelen uit `.env.example` (geheimen alleen hier).
 3. Actions na deploy (Git → Additional deployment actions):
    ```
    npm ci
    npm run deploy:check
-   npm run verify
    npm run db:backup
    npm run db:migrate
-   npm run build
+   npm run build:server
    ```
-   Daarna "Restart App".
+   Daarna "Restart App". (Geen `npm run verify` en geen `npm run build:web`/`npm run build` hier — zie "Node-versie" hierboven; `dist/web/` komt al gebouwd mee via Git.)
 4. `npm run healthcheck` moet slagen.
 
 ## 3. Subpad `/tool` — Apache/Passenger
@@ -63,5 +80,5 @@ Plesk → Node.js → Logs, en `/var/www/vhosts/nicenext.nl/logs/`. Applicatielo
 ## 6. Rollback
 
 1. `git tag` bij elke release (`v0.x.y`).
-2. Code: in Plesk Git de vorige tag/commit deployen (`git checkout <tag>`), `npm ci`, `npm run build`, restart.
+2. Code: in Plesk Git de vorige tag/commit deployen (`git checkout <tag>`), `npm ci`, `npm run build:server` (die tag heeft zijn eigen `dist/web/` al meegecommit), restart.
 3. Database: migraties zijn expand/contract; controleer vóór rollback of het oude schema compatibel is. Anders herstel de back-up van vóór de migratie (`docs/operations/runbook.md`).
