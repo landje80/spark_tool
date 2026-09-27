@@ -17,9 +17,13 @@ coverage/
 *.p12
 *.crt
 *.cer
-uploads/
-storage/
-backups/
+# Met een voorloop-/ geankerd aan de repo-root: een kaal "storage/" (zonder /) matcht anders een map
+# met die naam op willekeurige diepte en negeerde zo per ongeluk ook src/integrations/storage/ (de
+# broncode van de opslagabstractie) — precies dat is hier lang onopgemerkt gebleven omdat lokale
+# builds toch van de schijf lazen, ongeacht git-tracking. Pas ontdekt bij een verse clone op Plesk.
+/uploads/
+/storage/
+/backups/
 *.sql
 *.sql.gz
 # Migratiegeschiedenis hoort wél in Git (back-ups en dumps niet).
