@@ -9,6 +9,9 @@ const env = parseEnv({
   NODE_ENV: 'test',
   DATABASE_URL: 'mysql://x:x@localhost:3306/x',
   SESSION_SECRET: 'x'.repeat(40),
+  // Expliciet getest onder een subpad (onafhankelijk van de productiestandaard '/'); zie het
+  // tweede testgeval hieronder dat juist controleert dat het ook zónder prefix werkt.
+  APP_BASE_PATH: '/tool',
   ENTRA_TENANT_ID: 't',
   ENTRA_CLIENT_ID: 'c',
   ENTRA_CLIENT_SECRET: 's',

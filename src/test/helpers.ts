@@ -14,6 +14,9 @@ export const testEnv = (extra: Record<string, string> = {}) =>
     ENTRA_TENANT_ID: 't',
     ENTRA_CLIENT_ID: 'c',
     ENTRA_CLIENT_SECRET: 's',
+    // Expliciet getest onder een subpad (onafhankelijk van de productiestandaard, die sinds de
+    // verhuizing naar een eigen subdomein '/' is): dit dekt de APP_BASE_PATH-ondersteuning zelf.
+    APP_BASE_PATH: '/tool',
     ENTRA_REDIRECT_URI: 'http://localhost:3000/tool/auth/callback',
     ENTRA_POST_LOGOUT_REDIRECT_URI: 'http://localhost:3000/tool/login',
     ...extra,

@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- App draait voortaan op een eigen subdomein (`tool.nicenext.nl`) in plaats van onder `/tool` op het gedeelde `spark.nicenext.nl`: `APP_BASE_PATH` en Vite's `base` staan standaard op root (`/`); Document Root wijst direct naar `dist/web` (zie ADR-005 in `docs/architecture/technology-decisions.md`).
+- `prisma generate` loopt voortaan ook via een eigen `postinstall`-script, naast `@prisma/client`'s eigen hook.
+- `pino`-logger ondersteunt een optionele `LOG_FILE` naast stdout, voor hosting waar Apache/Passenger-stdout-opvang onbetrouwbaar bleek.
+- Frontendtooling teruggezet naar Vite 5 + `@vitejs/plugin-react` 4 (Vitest 3): Vite 5 ondersteunt Node 21 (de hoogste versie op Plesk), waardoor de frontend in principe ook op de server kan worden gebouwd; `engines` is `^18 || >=20`. Vitest 3 vraagt `fileParallelism: false` op root-niveau van `vitest.config.ts` (integratietests delen één database).
+- `.npmrc` met `scripts-prepend-node-path` verwijderd: onbekende optie in huidige npm en bewezen zonder effect op het Prisma-`postinstall`-probleem (zie `docs/deployment/plesk-deployment.md` §2/§7).
+
+### Fixed
+
+- `npm run build:web` bouwt nu altijd een productiebuild (`scripts/build/build-web.mjs` dwingt `NODE_ENV=production` af). Eerder erfde `vite build` een niet-productie `NODE_ENV` uit de lokale `.env` (via `npm run verify`), waardoor `dist/web` de ontwikkelversie van React bevatte (~668 kB i.p.v. ~348 kB).
+
 ## [0.1.0] — 2026-09-22
 
 Fase 1 (Fasen C–I) van het masterplan: CRM, dagelijkse leadgeneratie, outreach en klanten/content/media/review zijn gebouwd en getest. Fase H (daadwerkelijke uitrol naar Plesk) staat klaar maar is nog niet uitgevoerd — wacht op echte secrets/serverdata (Entra, Postmark, Anthropic, Plesk-toegang); zie `docs/deployment/plesk-deployment.md`.

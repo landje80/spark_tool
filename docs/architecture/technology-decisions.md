@@ -9,7 +9,7 @@ Geverifieerd op **2026-09-21** tegen het npm-register en de installeerbare pakke
 | Node.js                     | 24 LTS lokaal (≥22.12) | Alle gekozen pakketten vereisen ≥20.19/22.12. Plesk-versie moet op de server worden bevestigd. |
 | TypeScript                  | 6.0.3                  | typescript-eslint 8.70 ondersteunt `<6.1`. TS 7 valt buiten die range.                         |
 | Express                     | 5.2.1                  | Async-fouten worden automatisch doorgegeven.                                                   |
-| React / Vite / React Router | 19.3 / 8.3 / 7.18      | Actueel; Vite `base: '/tool/'`.                                                                |
+| React / Vite / React Router | 19.3 / 8.3 / 7.18      | Actueel; Vite `base: '/'` (app draait op root van zijn eigen subdomein, zie ADR-005).          |
 | Prisma                      | **6.19.3** (ADR-001)   | Zie hieronder.                                                                                 |
 | Zod                         | 4.6                    | Env-, input- en AI-outputvalidatie.                                                            |
 | @azure/msal-node            | 6.0.1                  | Authorization code flow + PKCE, `getAuthCodeUrl`/`acquireTokenByCode` gecontroleerd.           |
@@ -28,19 +28,23 @@ Geverifieerd op **2026-09-21** tegen het npm-register en de installeerbare pakke
 
 ## ADR-002: Eén Node.js-proces, Express + React SPA
 
-Eén deploybare app onder `/tool`; Express serveert API en gebouwde SPA. Eenvoudig te hosten op Plesk. Alternatief (Next.js) is zwaarder voor Passenger en het subpad.
+Eén deploybare app; Express serveert API en gebouwde SPA. Eenvoudig te hosten op Plesk. Alternatief (Next.js) is zwaarder voor Passenger.
 
 ## ADR-003: Server-side sessies in MySQL
 
-Eigen `PrismaSessionStore` (sessie-id in de database als SHA-256-hash). `express-mysql-session` is niet gekozen: het pint een oude `mysql2` met advisories. Cookie: `HttpOnly`, `Secure` (prod), `SameSite=Lax` (nodig voor de terugkeer van Microsoft), pad `/tool`, rolling 8 uur.
+Eigen `PrismaSessionStore` (sessie-id in de database als SHA-256-hash). `express-mysql-session` is niet gekozen: het pint een oude `mysql2` met advisories. Cookie: `HttpOnly`, `Secure` (prod), `SameSite=Lax` (nodig voor de terugkeer van Microsoft), pad volgt `APP_BASE_PATH` (standaard `/`), rolling 8 uur.
 
 ## ADR-004: Autorisatie via Entra-toewijzing + rollen in de database
 
 Toegang tot de app vereist een expliciete `ENTRA_ALLOWED_USER_IDS`- of `ENTRA_ALLOWED_GROUP_IDS`-match (default deny). Rollen (ADMIN/MANAGER/SALES/CONTENT_EDITOR/VIEWER) staan in de database; nieuwe gebruikers krijgen `VIEWER`. Zolang er geen actieve ADMIN bestaat wordt de eerste toegestane gebruiker ADMIN (bootstrap). Groepen-overage (>200 groepen) wordt geweigerd tenzij de gebruiker via ID is toegestaan.
 
-## ADR-005: Sub-URI `/tool` en Passenger
+## ADR-005: Eigen subdomein (`tool.nicenext.nl`) in plaats van een sub-URI op een gedeeld domein
 
-De app monteert al zijn routes onder `APP_BASE_PATH`. Omdat Passenger het prefix wel of niet kan afstrippen, normaliseert `app.ts` inkomende URL's. Zie `docs/deployment/plesk-deployment.md` voor de Apache-configuratie.
+- **Context:** de app draaide aanvankelijk onder `/tool` op het gedeelde domein `spark.nicenext.nl` (ook de publieke marketingsite). Dat vereiste Document Root = een losse, lege `public/`-map (Passenger's conventie), terwijl de gebouwde frontend in `dist/web` staat, plus een subpad-prefix die zowel in Vite (`base`) als in Express (`APP_BASE_PATH`, cookiepad, Entra-URI's, Postmark-webhook-URL) consequent moest kloppen. Tijdens de eerste uitrol bleek dit (in combinatie met een onopgeloste Apache/Passenger-routeringsanomalie op de hostingserver) foutopsporing sterk te bemoeilijken.
+- **Besluit:** een eigen subdomein, uitsluitend voor deze app, gemonteerd op de root (`APP_BASE_PATH` standaard `/`, Vite `base: '/'`). Document Root wijst direct naar `dist/web`; geen subpad-normalisatie, geen `PassengerBaseURI`-constructie nodig.
+- **Restrisico:** de code ondersteunt nog steeds een willekeurig subpad (`APP_BASE_PATH`/Vite `base`) voor het geval de app ooit alsnog op een gedeeld domein moet draaien — dat pad blijft dus getest, maar wordt in de huidige deployment niet gebruikt.
+
+Zie `docs/deployment/plesk-deployment.md` voor de volledige Apache/Passenger-configuratie en de bij de eerste uitrol gevonden serverspecifieke valkuilen.
 
 ## ADR-006: Achtergrondtaken via jobs-tabel + Plesk Scheduled Task
 
@@ -48,8 +52,6 @@ Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node di
 
 ## Open verificatie (vereist toegang tot server of externe accounts)
 
-- Ondersteunde Node.js-versies in de Plesk Node.js-extensie op s1.gblict.nl.
-- Of Passenger het `/tool`-prefix doorgeeft (healthcheck bevestigt).
 - Beschikbaarheid van `ffmpeg` en de linux-`sharp`-binary.
 - Anthropic: modelnaam en beschikbaarheid van web search voor het account.
 - Postmark: webhook-authenticatie (Basic Auth/IP-allowlist) en inbound-configuratie.

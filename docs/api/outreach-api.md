@@ -1,6 +1,6 @@
 # Outreach-API
 
-Basispad `/tool/api` (achter sessie + CSRF), plus twee **publieke** routes onder `/tool` (zonder sessie).
+Basispad `/api` (achter sessie + CSRF), plus twee **publieke** routes onder de root (zonder sessie).
 
 ## Authenticated
 
@@ -20,9 +20,9 @@ Basispad `/tool/api` (achter sessie + CSRF), plus twee **publieke** routes onder
 
 ## Publiek (zonder sessie)
 
-| Methode  | Pad                        | Beveiliging                                                                                                                                                                                                                                                                                                                           |
-| -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST     | `/tool/webhooks/postmark`  | HTTP Basic Auth (`postmark` : `POSTMARK_WEBHOOK_SECRET`, ≥32 tekens) over HTTPS; Postmark kent geen HMAC-handtekeningen. Idempotent én atomair per event (named lock + transactie) via `WebhookEvent.externalKey`. 401 bij verkeerde gegevens, 503 zonder geheim, 500 bij een verwerkingsfout (Postmark probeert 5xx/408/429 opnieuw) |
-| GET/POST | `/tool/unsubscribe/:token` | Token = HMAC per verzonden mail. GET toont een bevestigingspagina (geen bijwerking), POST meldt af (ook one-click via `List-Unsubscribe-Post`)                                                                                                                                                                                        |
+| Methode  | Pad                   | Beveiliging                                                                                                                                                                                                                                                                                                                           |
+| -------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST     | `/webhooks/postmark`  | HTTP Basic Auth (`postmark` : `POSTMARK_WEBHOOK_SECRET`, ≥32 tekens) over HTTPS; Postmark kent geen HMAC-handtekeningen. Idempotent én atomair per event (named lock + transactie) via `WebhookEvent.externalKey`. 401 bij verkeerde gegevens, 503 zonder geheim, 500 bij een verwerkingsfout (Postmark probeert 5xx/408/429 opnieuw) |
+| GET/POST | `/unsubscribe/:token` | Token = HMAC per verzonden mail. GET toont een bevestigingspagina (geen bijwerking), POST meldt af (ook one-click via `List-Unsubscribe-Post`)                                                                                                                                                                                        |
 
 Verwerkte events: `Delivery`, `Bounce` (hard → suppressie), `SpamComplaint` (suppressie + prospect niet meer benaderen), `Open`, `Click`, `SubscriptionChange`, en **inbound** (antwoorden).

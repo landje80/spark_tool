@@ -1,6 +1,6 @@
 # Klanten-, content- en publishing-API
 
-Basispad `/tool/api` (achter sessie + CSRF), plus één **publieke** route onder `/tool/upload` (zonder sessie, tokengebonden).
+Basispad `/api` (achter sessie + CSRF), plus één **publieke** route onder `/upload` (zonder sessie, tokengebonden).
 
 ## Klanten (`customer.manage` schrijven; lezen ook met `content.upload_link`/`content.review`)
 
@@ -38,9 +38,9 @@ Basispad `/tool/api` (achter sessie + CSRF), plus één **publieke** route onder
 
 ## Publiek: mobiele uploadpagina (zonder sessie)
 
-| Methode  | Pad                   | Beveiliging                                                                                                                                                                                                                                                                                                                                           |
-| -------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET      | `/tool/upload/app.js` | Statisch, geen geheimen; CSP staat alleen same-origin scripts toe                                                                                                                                                                                                                                                                                     |
-| GET/POST | `/tool/upload/:token` | Token = SHA-256-hash vergeleken met `UploadLink.tokenHash`. Ongeldig/verlopen/ingetrokken/opgebruikt → altijd dezelfde generieke pagina (404, geen enumeratie). POST: multipart, MIME-sniffing (magic bytes) vóór opslag, grootte tegen `UPLOAD_MAX_IMAGE_MB`/`UPLOAD_MAX_VIDEO_MB`, verplicht toestemmingsvinkje, atomaire claim van het linkgebruik |
+| Methode  | Pad              | Beveiliging                                                                                                                                                                                                                                                                                                                                           |
+| -------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET      | `/upload/app.js` | Statisch, geen geheimen; CSP staat alleen same-origin scripts toe                                                                                                                                                                                                                                                                                     |
+| GET/POST | `/upload/:token` | Token = SHA-256-hash vergeleken met `UploadLink.tokenHash`. Ongeldig/verlopen/ingetrokken/opgebruikt → altijd dezelfde generieke pagina (404, geen enumeratie). POST: multipart, MIME-sniffing (magic bytes) vóór opslag, grootte tegen `UPLOAD_MAX_IMAGE_MB`/`UPLOAD_MAX_VIDEO_MB`, verplicht toestemmingsvinkje, atomaire claim van het linkgebruik |
 
 Bij een geslaagde inzending wordt een `media-technical-check`-job ingepland (dedupeKey = submission-id) die de sharp/ffmpeg-pijplijn asynchroon uitvoert (zie `docs/architecture/content-and-publishing.md`).

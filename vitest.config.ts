@@ -2,6 +2,9 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    // Root-niveau (Vitest 3 negeert dit binnen een project): de integratietests delen één database;
+    // sequentieel draaien voorkomt onderlinge verstoring (deadlocks/lock timeouts in resetDb).
+    fileParallelism: false,
     projects: [
       {
         test: {
@@ -18,8 +21,6 @@ export default defineConfig({
           environment: 'node',
           globalSetup: ['src/test/global-setup.ts'],
           setupFiles: ['src/test/setup.ts'],
-          // Tests delen één database; sequentieel draaien voorkomt onderlinge verstoring.
-          fileParallelism: false,
           testTimeout: 20_000,
         },
       },

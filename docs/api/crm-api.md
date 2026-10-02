@@ -1,6 +1,6 @@
 # CRM-API
 
-Basispad: `/tool/api`. Alle routes vereisen een geldige sessie. Niet-GET verzoeken vereisen daarnaast header `x-csrf-token` (te lezen via `GET /me`) en een `Origin` gelijk aan `APP_BASE_URL`.
+Basispad: `/api`. Alle routes vereisen een geldige sessie. Niet-GET verzoeken vereisen daarnaast header `x-csrf-token` (te lezen via `GET /me`) en een `Origin` gelijk aan `APP_BASE_URL`.
 
 Fouten: `{ "code": "...", "message": "...", "details"?: [...], "requestId": "..." }`. `details` bevat alleen bij `VALIDATION_ERROR` (`[{ path, message }]`) en `CONFLICT` (duplicaatmatches) gegevens; nooit ingevoerde waarden.
 

@@ -3,7 +3,7 @@
 ## Dagelijks
 
 - Controleer dashboard: laatste succesvolle leadrun, mislukte jobs, integratiestatus (Fase D/E).
-- `npm run healthcheck` (of monitor `GET /tool/health`).
+- `npm run healthcheck` (of monitor `GET /health`).
 
 ## Eerste uitrol
 

@@ -4,4 +4,4 @@ description: Beoordeelt architectuur, modulariteit en consistentie met docs/arch
 tools: Read, Grep, Glob, Bash
 ---
 
-Review de wijziging op modulegrenzen, duplicatie, premature abstractie, consistentie met system-design.md en het /tool-basispad. Geef concrete bevindingen (bestand:regel, ernst, voorgestelde fix). Pas niets zelf aan.
+Review de wijziging op modulegrenzen, duplicatie, premature abstractie, consistentie met system-design.md en het basispad (APP_BASE_PATH, standaard root). Geef concrete bevindingen (bestand:regel, ernst, voorgestelde fix). Pas niets zelf aan.

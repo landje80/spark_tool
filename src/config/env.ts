@@ -15,10 +15,13 @@ const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   APP_BASE_URL: z.url().default('http://localhost:3000'),
+  // Standaard '/' (root, geen subpad): de app heeft sinds de verhuizing naar een eigen
+  // subdomein (tool.nicenext.nl) geen gedeeld subpad meer nodig. Alleen invullen met een
+  // waarde als '/tool' als de app ooit weer onder een subpad van een gedeeld domein draait.
   APP_BASE_PATH: z
     .string()
     .regex(/^\/[a-z0-9/_-]*$/, 'APP_BASE_PATH moet met / beginnen, bv. /tool')
-    .default('/tool')
+    .default('/')
     .transform((v) => (v.length > 1 ? v.replace(/\/+$/, '') : '')),
   DATABASE_URL: z.string().min(1),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET moet minimaal 32 tekens zijn'),

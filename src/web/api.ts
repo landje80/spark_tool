@@ -1,4 +1,4 @@
-// Alle URL's zijn relatief aan het basispad (/tool). Vite levert dit via import.meta.env.BASE_URL.
+// Alle URL's zijn relatief aan het basispad (standaard root). Vite levert dit via import.meta.env.BASE_URL.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 export interface Me {

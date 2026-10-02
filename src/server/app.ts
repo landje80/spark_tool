@@ -251,7 +251,7 @@ export function createApp(env: Env, deps: AppDeps = {}): express.Express {
   api.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'Onbekend endpoint')));
   router.use('/api', api);
 
-  // Statische frontend onder /tool/; assets zijn gehasht en mogen lang worden gecachet.
+  // Statische frontend; assets zijn gehasht en mogen lang worden gecachet.
   router.use(
     express.static(WEB_DIR, {
       index: false,

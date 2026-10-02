@@ -1,6 +1,7 @@
 // Gebruik: npm run healthcheck [url]  (standaard APP_BASE_URL + APP_BASE_PATH + /health)
 const base = process.env.APP_BASE_URL ?? 'http://localhost:3000';
-const path = process.env.APP_BASE_PATH ?? '/tool';
+const rawPath = process.env.APP_BASE_PATH ?? '';
+const path = rawPath === '/' ? '' : rawPath;
 const url = process.argv[2] ?? `${base}${path}/health`;
 
 try {

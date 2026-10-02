@@ -1,5 +1,5 @@
-// Start de GEBOUWDE server (zoals Plesk dat doet) en controleert /tool/health en de SPA-uitlevering.
-// Vangt fouten in startpad, build-uitvoer en routing onder /tool die typecheck en tests niet zien.
+// Start de GEBOUWDE server (zoals Plesk dat doet) en controleert /health en de SPA-uitlevering.
+// Vangt fouten in startpad, build-uitvoer en routing die typecheck en tests niet zien.
 //
 // Twee runs:
 //  1. Ontwikkelingsachtige env (zoals voorheen) — met, indien beschikbaar, de echte lokale
@@ -33,20 +33,19 @@ async function waitFor(isExited, getStderr, fn, ms = 20000) {
 /** @returns {Promise<string|null>} null bij succes, anders een foutmelding. */
 async function runSmoke(label, buildEnv, { checkHealthOk, checkSpa }) {
   const port = 3990 + Math.floor(Math.random() * 500);
-  const base = `http://127.0.0.1:${port}/tool`;
+  const base = `http://127.0.0.1:${port}`;
 
   const child = spawn(process.execPath, [ENTRY], {
     env: {
       ...process.env,
       PORT: String(port),
       LOG_LEVEL: 'silent',
-      APP_BASE_PATH: '/tool',
       SESSION_SECRET: 'smoke-test-secret-'.padEnd(40, 'x'),
       ENTRA_TENANT_ID: 'smoke',
       ENTRA_CLIENT_ID: 'smoke',
       ENTRA_CLIENT_SECRET: 'smoke',
-      ENTRA_REDIRECT_URI: `http://127.0.0.1:${port}/tool/auth/callback`,
-      ENTRA_POST_LOGOUT_REDIRECT_URI: `http://127.0.0.1:${port}/tool/login`,
+      ENTRA_REDIRECT_URI: `http://127.0.0.1:${port}/auth/callback`,
+      ENTRA_POST_LOGOUT_REDIRECT_URI: `http://127.0.0.1:${port}/login`,
       ...buildEnv(port),
     },
     stdio: ['ignore', 'ignore', 'pipe'],
@@ -77,17 +76,13 @@ async function runSmoke(label, buildEnv, { checkHealthOk, checkSpa }) {
     console.log(`  [${label}] /health → HTTP ${health.status} ${JSON.stringify(health.body)}`);
 
     if (checkSpa) {
-      // Zonder prefix (als Passenger het afstript) moet dezelfde route werken.
-      const bare = await fetch(`http://127.0.0.1:${port}/health`);
-      if (!bare.ok) throw new Error('health zonder /tool-prefix werkt niet');
-
       const page = await fetch(`${base}/login`);
       const html = await page.text();
       if (!page.ok || !html.includes('<div id="root">')) {
-        throw new Error('SPA wordt niet uitgeleverd onder /tool/login');
+        throw new Error('SPA wordt niet uitgeleverd onder /login');
       }
-      const asset = html.match(/(?:src|href)="(\/tool\/assets\/[^"]+\.(?:js|css))"/)?.[1];
-      if (!asset) throw new Error('index.html verwijst niet naar assets onder /tool/assets/');
+      const asset = html.match(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/)?.[1];
+      if (!asset) throw new Error('index.html verwijst niet naar assets onder /assets/');
       const a = await fetch(`http://127.0.0.1:${port}${asset}`);
       if (!a.ok) throw new Error(`asset ${asset} niet bereikbaar (${a.status})`);
     }
@@ -137,5 +132,5 @@ if (errors.length) {
   process.exit(1);
 }
 console.log(
-  'Smoke-test: gebouwde server start onder ontwikkelings- én productie-env, /tool/health, SPA en assets onder /tool werken.',
+  'Smoke-test: gebouwde server start onder ontwikkelings- én productie-env, /health, SPA en assets werken.',
 );

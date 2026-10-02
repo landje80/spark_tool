@@ -3,17 +3,17 @@
 ## Overzicht
 
 ```
-Browser ── https://spark.nicenext.nl/tool ──> Apache (Plesk) ──> Passenger ──> Node/Express
-                                                                  │
-                          React SPA (dist/web) <──────────────────┤
-                          /tool/api/*  (JSON, sessie + CSRF)      │
-                          /tool/auth/* (Entra OIDC)               ├── MySQL (Prisma)
-                          /tool/upload/:token (publiek, klant)    ├── Postmark (uitgaand + webhooks)
-                          /tool/unsubscribe/:token (publiek)      ├── Anthropic (leadgeneratie, content)
-                          /tool/webhooks/postmark (publiek)       │
-                          /tool/health                            │
-                                                                  │
-                          Plesk Scheduled Task ──> job runner ────┴── private opslag (buiten docroot)
+Browser ── https://tool.nicenext.nl ──> Apache (Plesk) ──> Passenger ──> Node/Express
+                                                             │
+                          React SPA (dist/web) <─────────────┤
+                          /api/*  (JSON, sessie + CSRF)      │
+                          /auth/* (Entra OIDC)               ├── MySQL (Prisma)
+                          /upload/:token (publiek, klant)    ├── Postmark (uitgaand + webhooks)
+                          /unsubscribe/:token (publiek)      ├── Anthropic (leadgeneratie, content)
+                          /webhooks/postmark (publiek)       │
+                          /health                            │
+                                                             │
+                          Plesk Scheduled Task ──> job runner ┴── private opslag (buiten docroot)
 ```
 
 ## Modules (`src/`)
@@ -34,20 +34,20 @@ Browser ── https://spark.nicenext.nl/tool ──> Apache (Plesk) ──> Pas
 - `shared/` — database (client, named locks, sessiestore, prompt-versies), security (permissies, tokens), logging (pino met redactie), errors, i18n (`nl.ts`), http (gedeelde publieke-paginaopmaak).
 - `web/` — React-app, mobile-first, NiceNext-huisstijl, teksten uit `shared/i18n`.
 
-## Routing onder `/tool`
+## Routing
 
-- Vite `base: '/tool/'`; React Router `basename` uit `import.meta.env.BASE_URL`.
-- Express monteert alles op `APP_BASE_PATH`; cookiepad `/tool`.
+- Vite `base: '/'`; React Router `basename` uit `import.meta.env.BASE_URL`.
+- Express monteert alles op `APP_BASE_PATH` (standaard `/`, root — zie `src/config/env.ts`); cookiepad volgt hetzelfde basispad. Draait de app ooit onder een subpad van een gedeeld domein, dan verhuist dat pad mee via `APP_BASE_PATH` en Vite's `base`; de app zelf heeft geen hardcoded subpad.
 - API-fouten hebben een stabiele `code` en `requestId`; nooit stacktraces.
 - SPA-fallback geldt voor alle GET's behalve `/api/*` en `/auth/*`.
 
 ## Authenticatiestroom
 
-1. `GET /tool/auth/login` → state, nonce, PKCE-verifier in de sessie → redirect naar Entra (tenant-specifieke authority).
-2. `GET /tool/auth/callback` → state (constant-time) → code-exchange → `evaluateAccess` (tid, aud, iss, nonce, allowlist) → gebruiker upserten → **sessie roteren** → CSRF-token.
-3. `POST /tool/auth/logout` (CSRF) → sessie vernietigen → redirect naar Entra logout.
+1. `GET /auth/login` → state, nonce, PKCE-verifier in de sessie → redirect naar Entra (tenant-specifieke authority).
+2. `GET /auth/callback` → state (constant-time) → code-exchange → `evaluateAccess` (tid, aud, iss, nonce, allowlist) → gebruiker upserten → **sessie roteren** → CSRF-token.
+3. `POST /auth/logout` (CSRF) → sessie vernietigen → redirect naar Entra logout.
 
-Entra-app-registratie: redirect-URI `https://spark.nicenext.nl/tool/auth/callback`, logout-URI `https://spark.nicenext.nl/tool/login`, single-tenant, optionele `groups` claim (groepen-toewijzing) of directe gebruikerstoewijzing.
+Entra-app-registratie: redirect-URI `https://tool.nicenext.nl/auth/callback`, logout-URI `https://tool.nicenext.nl/login`, single-tenant, optionele `groups` claim (groepen-toewijzing) of directe gebruikerstoewijzing.
 
 ## Autorisatie
 

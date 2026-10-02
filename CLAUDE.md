@@ -1,10 +1,10 @@
 # Spark Tool
 
-CRM, dagelijkse leadgeneratie (Anthropic), outreach (Postmark) en content intake voor Spark. Live op https://spark.nicenext.nl/tool (Plesk, Apache/Passenger, MySQL). Geen staging: `main` is productieklaar.
+CRM, dagelijkse leadgeneratie (Anthropic), outreach (Postmark) en content intake voor Spark. Live op https://tool.nicenext.nl (Plesk, Apache/Passenger, MySQL). Geen staging: `main` is productieklaar.
 
 ## Architectuur
 
-Eén Node-app: Express 5 (API + statische SPA) + React/Vite onder basispad `/tool`. Prisma 6 + MySQL, server-side sessies in MySQL, Entra ID single-tenant (MSAL), Postmark, Anthropic. Taken via `Job`-tabel + Plesk Scheduled Task. Details: `docs/architecture/system-design.md`.
+Eén Node-app: Express 5 (API + statische SPA) + React/Vite op de root van een eigen subdomein (`APP_BASE_PATH` standaard `/`). Prisma 6 + MySQL, server-side sessies in MySQL, Entra ID single-tenant (MSAL), Postmark, Anthropic. Taken via `Job`-tabel + Plesk Scheduled Task. Details: `docs/architecture/system-design.md`.
 
 ## Commando's
 

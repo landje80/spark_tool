@@ -27,7 +27,7 @@ Authenticatie: Basic Auth over HTTPS (zie API-doc; Postmark biedt geen HMAC), wa
 
 1. Sender Signature/domein `nicenext.nl` verifiëren (DKIM + Return-Path); SPF/DMARC controleren.
 2. Message Stream `outbound` (transactioneel) of een aparte Broadcast-stream voor outreach; noteer de naam in `POSTMARK_MESSAGE_STREAM`.
-3. Webhooks (Settings → Webhooks) op de stream: URL `https://postmark:<POSTMARK_WEBHOOK_SECRET>@spark.nicenext.nl/tool/webhooks/postmark`; vink Delivery, Bounce, Spam complaint, Subscription change (en optioneel Open/Click) aan. Test met de knop "Send test".
+3. Webhooks (Settings → Webhooks) op de stream: URL `https://postmark:<POSTMARK_WEBHOOK_SECRET>@tool.nicenext.nl/webhooks/postmark`; vink Delivery, Bounce, Spam complaint, Subscription change (en optioneel Open/Click) aan. Test met de knop "Send test".
 4. Inbound: inbound-domein of -adres instellen op dezelfde URL; zet `POSTMARK_INBOUND_DOMAIN`.
 5. Instellingen → E-mail en outreach: vul de afzenderregel volledig in (naam, adres, KvK).
 

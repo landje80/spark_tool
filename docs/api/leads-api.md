@@ -1,6 +1,6 @@
 # Leadgeneratie-API
 
-Basispad `/tool/api`; zelfde sessie-, CSRF- en foutregels als de [CRM-API](crm-api.md).
+Basispad `/api`; zelfde sessie-, CSRF- en foutregels als de [CRM-API](crm-api.md).
 
 | Methode | Pad                             | Recht             | Doel                                                                                                                                             |
 | ------- | ------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
