@@ -5,7 +5,6 @@ const REQUIRED = [
   'DATABASE_URL',
   'SESSION_SECRET',
   'APP_BASE_URL',
-  'APP_BASE_PATH',
   'ENTRA_TENANT_ID',
   'ENTRA_CLIENT_ID',
   'ENTRA_CLIENT_SECRET',
@@ -43,6 +42,15 @@ if (process.env.NODE_ENV !== 'production') {
   } catch {
     missing.push('APP_BASE_URL (geen geldige URL)');
   }
+}
+
+// APP_BASE_PATH is optioneel (standaard '/'). dist/web is gebouwd met Vite base '/', dus een subpad
+// werkt alleen als de frontend ook voor dat subpad is gebouwd; anders breken assets en het cookiepad.
+const basePath = process.env.APP_BASE_PATH;
+if (basePath && basePath !== '/') {
+  console.warn(
+    `Let op: APP_BASE_PATH staat op "${basePath}". De meegeleverde dist/web is voor de root ('/') gebouwd; verwijder deze variabele tenzij je bewust onder een subpad draait.`,
+  );
 }
 
 if (notes.length)
