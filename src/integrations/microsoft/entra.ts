@@ -59,12 +59,16 @@ export class EntraClient {
     return { url, state, nonce, codeVerifier: verifier };
   }
 
-  async complete(code: string, codeVerifier: string): Promise<IdTokenClaims> {
+  async complete(code: string, codeVerifier: string, nonce: string): Promise<IdTokenClaims> {
     const result = await this.msal.acquireTokenByCode({
       code,
       scopes: SCOPES,
       redirectUri: this.env.ENTRA_REDIRECT_URI,
       codeVerifier,
+      // Verplicht: msal-node weigert elk ID-token met een nonce als de verwachte nonce hier niet
+      // wordt meegegeven (nonce_mismatch). Evaluatie van de claims (evaluateAccess) controleert
+      // de nonce daarnaast nog eens zelf.
+      nonce,
     });
     return (result.idTokenClaims ?? {}) as IdTokenClaims;
   }

@@ -56,7 +56,7 @@ export function authRouter(env: Env, entra: EntraClient = new EntraClient(env)):
 
     let claims;
     try {
-      claims = await entra.complete(code, pending.codeVerifier);
+      claims = await entra.complete(code, pending.codeVerifier, pending.nonce);
     } catch (err) {
       logger.warn(
         { err: err instanceof Error ? err.message : 'unknown', reqId: req.id },

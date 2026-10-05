@@ -12,6 +12,7 @@
 
 ### Fixed
 
+- Inloggen via Entra faalde met `nonce_mismatch`: msal-node weigert elk ID-token met een nonce als de verwachte nonce niet in het `acquireTokenByCode`-verzoek zit. `EntraClient.complete()` krijgt de nonce uit de sessie nu mee. De integratietests mocken `EntraClient`, daarom is er een eigen unit-test (`entra.test.ts`) die het echte verzoek aan MSAL controleert.
 - Passenger-opstartbestand is nu `passenger-start.cjs` (laadt de app via `import()`). Passenger's node-loader gebruikt `require(startupFile)`, wat voor een ES-module (`"type": "module"`) op Node < 22.12 faalt met ERR_REQUIRE_ESM: de app startte op Plesk (Node 21.7.3) nooit, zonder enige logregel. Dit was de hoofdoorzaak van de 500's na de eerste uitrol. De smoke-test start de gebouwde server nu via ditzelfde bestand.
 - `npm run build:web` bouwt nu altijd een productiebuild (`scripts/build/build-web.mjs` dwingt `NODE_ENV=production` af). Eerder erfde `vite build` een niet-productie `NODE_ENV` uit de lokale `.env` (via `npm run verify`), waardoor `dist/web` de ontwikkelversie van React bevatte (~668 kB i.p.v. ~348 kB).
 
