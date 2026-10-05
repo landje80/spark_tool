@@ -15,16 +15,22 @@ export async function isSuppressed(db: Db, email: string): Promise<boolean> {
   return !!row;
 }
 
-/** Idempotent: een bestaande suppressie blijft ongewijzigd (de eerste reden blijft behouden). */
+/**
+ * Idempotent: een bestaande suppressie blijft ongewijzigd (de eerste reden blijft behouden).
+ *
+ * Bewust `createMany` met `skipDuplicates` (één atomaire INSERT IGNORE) en geen `upsert`: Prisma's upsert
+ * is hier een select-dan-insert, dus twee gelijktijdige schrijfacties voor hetzelfde adres (bv. de Bounce-
+ * en Spam-testevents die Postmark bij het opslaan van een webhook tegelijk afvuurt) zagen allebei "geen
+ * rij", waarna de verliezer een unique-fout kreeg en het hele webhookevent een 500 gaf.
+ */
 export async function addSuppression(
   db: Db,
   email: string,
   reason: SuppressionReason,
 ): Promise<void> {
   const n = normalizeEmail(email);
-  await db.emailSuppression.upsert({
-    where: { emailHash: emailHash(n) },
-    create: { emailHash: emailHash(n), domain: n.split('@')[1] ?? null, reason },
-    update: {},
+  await db.emailSuppression.createMany({
+    data: [{ emailHash: emailHash(n), domain: n.split('@')[1] ?? null, reason }],
+    skipDuplicates: true,
   });
 }

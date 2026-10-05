@@ -2,6 +2,7 @@ import express, { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import type { PrismaClient } from '@prisma/client';
 import type { Env } from '../../config/env.js';
+import { safeError } from '../../shared/errors/safe-error.js';
 import { escapeHtml, publicPage } from '../../shared/http/public-page.js';
 import { logger } from '../../shared/logging/logger.js';
 import { safeEqualString } from '../../shared/security/tokens.js';
@@ -60,10 +61,7 @@ export function publicOutreachRouter(env: Env, db: PrismaClient): Router {
         res.status(200).json({ ok: true, outcome });
       } catch (err) {
         // 5xx: Postmark probeert het later opnieuw (escalerend schema).
-        logger.error(
-          { err: err instanceof Error ? err.name : 'unknown' },
-          'Webhookverwerking mislukt',
-        );
+        logger.error({ err: safeError(err) }, 'Webhookverwerking mislukt');
         res.status(500).json({ ok: false });
       }
     },

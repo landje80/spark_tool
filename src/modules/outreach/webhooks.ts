@@ -1,6 +1,7 @@
 import type { EmailMessage, Prisma, PrismaClient, ProspectStatus } from '@prisma/client';
 import { z } from 'zod';
 import { withNamedLock } from '../../shared/database/lock.js';
+import { safeError } from '../../shared/errors/safe-error.js';
 import { audit } from '../audit/audit.js';
 import { canTransition } from '../prospects/status.js';
 import { addSuppression, normalizeEmail } from './suppression.js';
@@ -382,7 +383,7 @@ export async function processPostmarkEvent(
   } catch (err) {
     // De transactie is teruggedraaid (geen halve schrijfacties blijven staan). Alleen de foutmelding vastleggen
     // voor zichtbaarheid, buiten de transactie om: dit schrijft geen bedrijfsdata en mag dus niet-atomair.
-    const msg = (err instanceof Error ? err.name : 'fout').slice(0, 200);
+    const msg = safeError(err).slice(0, 200); // incl. Prisma-foutcode (bv. P2002), nooit queryargumenten
     await db.webhookEvent
       .upsert({
         where: { externalKey: k.key },
