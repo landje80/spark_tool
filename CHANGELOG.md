@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-05
+
+Eerste versie die daadwerkelijk op de server draait (Fase H): `https://tool.nicenext.nl` op Plesk (s1.gblict.nl) met Apache/Passenger, Node 21.7.3, inloggen via Entra, een werkende Postmark-webhook (alle zes events geverifieerd) en een jobrunner die elke 10 minuten via een Plesk-taak wordt aangeroepen. De uitrol legde een reeks serverspecifieke valkuilen bloot; die staan in `docs/deployment/plesk-deployment.md` (§2, §3, §7).
+
 ### Changed
 
 - App draait voortaan op een eigen subdomein (`tool.nicenext.nl`) in plaats van onder `/tool` op het gedeelde `spark.nicenext.nl`: `APP_BASE_PATH` en Vite's `base` staan standaard op root (`/`); Document Root wijst direct naar `dist/web` (zie ADR-005 in `docs/architecture/technology-decisions.md`).
