@@ -30,7 +30,7 @@ Webinhoud is onbetrouwbare invoer. Mitigaties: (a) het model heeft geen tools me
 
 ## Planning
 
-Eén Plesk Scheduled Task, elke ~10 minuten: `npm run jobs:run` (`dist/server/src/server/run-jobs.js`). Die plant idempotent de dagelijkse jobs in (leadrun pas na 06:30 lokale tijd en alleen als ingeschakeld en geconfigureerd, plus onderhoud) en verwerkt de wachtrij. Handmatige runs (UI) komen zo ook aan bod. Een niet-nul exitcode (2) betekent dat er jobs definitief mislukt zijn.
+Eén Plesk Scheduled Task, elke ~10 minuten: `npm run jobs:run` (`dist/server/src/server/run-jobs.js`), of op hosting waar cron niet bij Node kan een "URL ophalen"-taak op `/internal/run-jobs`. Die plant idempotent de dagelijkse jobs in (leadrun pas na 06:30 lokale tijd en alleen als ingeschakeld en geconfigureerd, plus onderhoud) en verwerkt de wachtrij. Handmatige runs (UI) komen zo ook aan bod. Een niet-nul exitcode (2) betekent dat er jobs definitief mislukt zijn.
 
 ## Beheer
 

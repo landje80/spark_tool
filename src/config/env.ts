@@ -56,7 +56,13 @@ const schema = z.object({
 
   LEAD_GENERATION_TIMEZONE: z.string().default('Europe/Amsterdam'),
   LEAD_GENERATION_DAILY_TARGET: z.coerce.number().int().min(1).max(25).default(10),
-  LEAD_GENERATION_CRON_SECRET: z.string().min(24).optional(),
+  // Wachtwoord (Basic Auth, gebruiker "cron") voor de HTTP-trigger /internal/run-jobs. Leeg/ontbrekend
+  // betekent "niet geconfigureerd" (endpoint antwoordt 503); alleen een ingevulde waarde wordt op lengte
+  // gecontroleerd (een leeg .env.example-regel mag de app dus niet laten weigeren te starten).
+  LEAD_GENERATION_CRON_SECRET: z
+    .string()
+    .optional()
+    .refine((v) => !v || v.length >= 24, 'moet minimaal 24 tekens zijn'),
 
   UPLOAD_STORAGE_DRIVER: z.enum(['local']).default('local'),
   UPLOAD_PRIVATE_PATH: z.string().default('./storage/private'),

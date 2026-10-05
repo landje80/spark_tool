@@ -8,6 +8,7 @@
 - `prisma generate` loopt voortaan ook via een eigen `postinstall`-script, naast `@prisma/client`'s eigen hook.
 - `pino`-logger ondersteunt een optionele `LOG_FILE` naast stdout, voor hosting waar Apache/Passenger-stdout-opvang onbetrouwbaar bleek.
 - Frontendtooling teruggezet naar Vite 5 + `@vitejs/plugin-react` 4 (Vitest 3): Vite 5 ondersteunt Node 21 (de hoogste versie op Plesk), waardoor de frontend in principe ook op de server kan worden gebouwd; `engines` is `^18 || >=20`. Vitest 3 vraagt `fileParallelism: false` op root-niveau van `vitest.config.ts` (integratietests delen één database).
+- Nieuwe HTTP-trigger `GET|POST /internal/run-jobs` (Basic Auth, gebruiker `cron`, wachtwoord `LEAD_GENERATION_CRON_SECRET`) die dezelfde ronde draait als `npm run jobs:run` (nu via `runJobsOnce`). Nodig omdat cron-taken op s1.gblict.nl in een chroot-shell draaien waar Plesk's Node onbereikbaar is; een Plesk-taak "URL ophalen" werkt op elke installatie. `LEAD_GENERATION_CRON_SECRET` is daarmee niet langer gereserveerd; een lege waarde in `.env` blokkeert het opstarten niet meer.
 - `.npmrc` met `scripts-prepend-node-path` verwijderd: onbekende optie in huidige npm en bewezen zonder effect op het Prisma-`postinstall`-probleem (zie `docs/deployment/plesk-deployment.md` §2/§7).
 
 ### Fixed

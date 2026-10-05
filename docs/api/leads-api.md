@@ -13,4 +13,4 @@ Basispad `/api`; zelfde sessie-, CSRF- en foutregels als de [CRM-API](crm-api.md
 
 - `accept` maakt een nieuwe prospect (blokkeert bij een inmiddels ontstaan exact duplicaat), `attach` koppelt de nieuwe bronnen aan de bestaande prospect, `reject` sluit af. Een kandidaat kan maar één keer worden beoordeeld (409 daarna).
 - Handmatige runs krijgen geen automatische herhaling (elke poging kost geld) en er staat maximaal één leadrun tegelijk in de wachtrij.
-- Runs worden uitgevoerd door de jobrunner (`npm run jobs:run`), niet door het webproces; een handmatige run start dus bij de eerstvolgende taakuitvoering.
+- Runs worden uitgevoerd door de jobrunner (`npm run jobs:run` of de HTTP-trigger `/internal/run-jobs`), niet door een gebruikersverzoek; een handmatige run start dus bij de eerstvolgende taakuitvoering.

@@ -19,7 +19,7 @@ const redact = {
 // praktijk onbetrouwbaar/ontraceerbaar (zelfs met de meest uitgebreide Apache- en
 // Passenger-logniveaus bleef een falende requestafhandeling spoorloos) — LOG_FILE geeft de app
 // een eigen, altijd-beschikbaar logbestand, onafhankelijk van wat de omringende infrastructuur
-// wel of niet doorgeeft. Onset (leeg/ontbrekend) verandert niets aan het bestaande gedrag.
+// wel of niet doorgeeft. Niet ingesteld (leeg/ontbrekend) verandert niets aan het bestaande gedrag.
 const destination = process.env.LOG_FILE
   ? pino.multistream([
       { stream: process.stdout },

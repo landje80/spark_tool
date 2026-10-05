@@ -16,6 +16,7 @@ import type { StoragePort } from '../integrations/storage/types.js';
 import { customersRouter } from '../modules/customers/routes.js';
 import { publicContentIntakeRouter } from '../modules/content-intake/public-routes.js';
 import { contentIntakeRouter } from '../modules/content-intake/routes.js';
+import { jobTriggerRouter } from '../modules/jobs/trigger-routes.js';
 import { leadRouter } from '../modules/lead-generation/routes.js';
 import { publicOutreachRouter } from '../modules/outreach/public-routes.js';
 import { outreachRouter } from '../modules/outreach/routes.js';
@@ -169,6 +170,8 @@ export function createApp(env: Env, deps: AppDeps = {}): express.Express {
   router.use(publicPageAssetsRouter());
   router.use(publicOutreachRouter(env, db));
   router.use(publicContentIntakeRouter({ env, db, storage }));
+  // Cron-trigger (Basic Auth met LEAD_GENERATION_CRON_SECRET) voor hosting waar cron niet bij Node kan.
+  router.use(jobTriggerRouter({ env, db, storage }));
 
   router.use(
     session({

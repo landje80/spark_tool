@@ -48,7 +48,7 @@ Zie `docs/deployment/plesk-deployment.md` voor de volledige Apache/Passenger-con
 
 ## ADR-006: Achtergrondtaken via jobs-tabel + Plesk Scheduled Task
 
-Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node dist/server/src/server/run-jobs.js` (`npm run jobs:run`) (of een beveiligd endpoint met `LEAD_GENERATION_CRON_SECRET`) aan; jobs staan in de `Job`-tabel met `dedupeKey`, retries en dead-letter.
+Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node dist/server/src/server/run-jobs.js` (`npm run jobs:run`) aan, of — waar cron niet bij Node kan, zoals op s1.gblict.nl — een "URL ophalen"-taak het beveiligde endpoint `/internal/run-jobs` (Basic Auth, `LEAD_GENERATION_CRON_SECRET`; zelfde ronde via `runJobsOnce`); jobs staan in de `Job`-tabel met `dedupeKey`, retries en dead-letter.
 
 ## Open verificatie (vereist toegang tot server of externe accounts)
 
@@ -65,7 +65,7 @@ Kritieke planning staat niet in het webproces. Een Scheduled Task roept `node di
 
 ## ADR-008: Eén jobrunner via Plesk Scheduled Task
 
-Eén taak elke ~10 minuten (`npm run jobs:run`) plant idempotent de dagelijkse jobs in en verwerkt de wachtrij; geen `setInterval` in het webproces en geen aparte HTTP-cron-endpoint (dus `LEAD_GENERATION_CRON_SECRET` is in fase 1 ongebruikt). Build-uitvoer staat onder `dist/server/src/server/` (`rootDir` is de projectroot); `npm run verify` start de gebouwde server als smoke-test.
+Eén taak elke ~10 minuten (`npm run jobs:run`) plant idempotent de dagelijkse jobs in en verwerkt de wachtrij; geen `setInterval` in het webproces en geen `setInterval` als planner: een extern verzoek (cron-CLI of de HTTP-trigger `/internal/run-jobs`) start elke ronde. Build-uitvoer staat onder `dist/server/src/server/` (`rootDir` is de projectroot); `npm run verify` start de gebouwde server als smoke-test.
 
 ## ADR-009: Opslagpoort (`StoragePort`) met alleen een lokale implementatie, ffmpeg als los proces
 

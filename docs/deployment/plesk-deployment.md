@@ -60,14 +60,24 @@ Document root wijst rechtstreeks naar `dist/web` (de gebouwde frontend), **niet*
 
 ## 3. Scheduled Tasks
 
-Kritieke planning staat bewust **niet** in het webproces. Maak in Plesk (Tools & Settings of per domein → Scheduled Tasks) twee taken, uitgevoerd als de gebruiker van de app, met de applicatiemap als werkmap:
+Kritieke planning staat bewust **niet** in een gebruikersverzoek: een extern verzoek start elke ronde van het jobrunner (dagelijkse jobs inplannen en de wachtrij verwerken).
 
-| Taak             | Schema          | Commando                                                                                                                       | Doel                                                                                                                                                                                                                                                      |
-| ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jobrunner        | elke 10 minuten | `cd /var/www/vhosts/nicenext.nl/tool.nicenext.nl/tool && /opt/plesk/node/21/bin/node dist/server/src/server/run-jobs.js`       | Plant de dagelijkse jobs idempotent in (leadrun pas na 06:30 lokale tijd, alleen als ingeschakeld en geconfigureerd; onderhoud) en verwerkt de wachtrij, inclusief handmatige runs uit de UI. Exitcode 2 = er zijn jobs definitief mislukt (dead-letter). |
-| Database-back-up | dagelijks 02:00 | `cd /var/www/vhosts/nicenext.nl/tool.nicenext.nl/tool && /opt/plesk/node/21/bin/node /opt/plesk/node/21/bin/npm run db:backup` | mysqldump buiten de webroot (zie runbook).                                                                                                                                                                                                                |
+**Cron-taken op s1.gblict.nl draaien in een afgeschermde (chroot-)shell.** Daarin bestaat `/var/www/vhosts/...` niet (alleen `/tool.nicenext.nl/...`) en ook `/opt/plesk/node` niet, dus een taak "Een opdracht uitvoeren" met `node run-jobs.js` faalt (`cd: ... No such file or directory`). Daarom start een taak van het type **"Een URL ophalen"** het jobrunner via een beveiligd endpoint van de app zelf. Dat werkt op elke Plesk-installatie, ongeacht shell- of chroot-instellingen.
 
-Gebruik steeds het **volledige, expliciete pad** naar Plesk's Node-binary (`/opt/plesk/node/21/bin/node`, eventueel aangepast aan de gekozen versie) in plaats van een kaal `node`/`npm` — zie §7. De jobrunner leest dezelfde omgevingsvariabelen als de app; in Plesk-taken moeten die daarom ook beschikbaar zijn (exporteer ze in het taakcommando of gebruik een `.env` buiten Git met minimale rechten, zie §2 van `check-env.mjs`).
+### Jobrunner (elke 10 minuten)
+
+1. Zet `LEAD_GENERATION_CRON_SECRET` (min. 24 tekens, bv. `openssl rand -base64 32`; gebruik bij voorkeur alleen letters en cijfers, dan hoeft het niet te worden ge-escaped in de URL) in de Node.js-variabelen én in de `.env` in de app-root. Herstart de app.
+2. Plesk → `nicenext.nl` → Geplande taken → **Taak toevoegen**: soort **Een URL ophalen**, schema **Cron-stijl** `*/10 * * * *`, URL:
+   ```
+   https://cron:<LEAD_GENERATION_CRON_SECRET>@tool.nicenext.nl/internal/run-jobs
+   ```
+3. Het endpoint antwoordt direct met `202` (`started`, of `busy` als er in dat proces al een ronde loopt) en voert de ronde op de achtergrond uit; het resultaat staat als `Jobrunner klaar` in het app-log (`LOG_FILE`). `401` = verkeerd wachtwoord, `503` = secret niet ingesteld. Controleer na het aanmaken met "Nu uitvoeren".
+
+Waar cron wél bij Node kan (andere server), werkt ook de CLI: `cd <app-root> && /pad/naar/node dist/server/src/server/run-jobs.js` (exitcode 2 = er zijn jobs definitief mislukt).
+
+### Database-back-up
+
+`npm run db:backup` (mysqldump buiten de webroot, zie runbook) hoort bij de deploy-stappen in §2 (vóór elke migratie). Een dagelijkse back-up kan om dezelfde reden niet vanuit cron-in-chroot op deze server: gebruik daarvoor Plesk's **Back-upbeheer** (Extra's → Back-upbeheer → geplande back-up van het abonnement, inclusief databases) of een back-up op serverniveau.
 
 ## 4. Logs
 

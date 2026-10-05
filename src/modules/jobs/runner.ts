@@ -43,6 +43,19 @@ export async function processJobs(
   return summary;
 }
 
+/** Eén volledige ronde: dagelijkse jobs inplannen en de wachtrij verwerken (CLI én HTTP-trigger). */
+export async function runJobsOnce(
+  ctx: JobContext,
+  workerId: string,
+): Promise<{
+  scheduled: { leadGeneration: boolean; maintenance: boolean };
+  summary: ProcessSummary;
+}> {
+  const scheduled = await scheduleDailyJobs(ctx);
+  const summary = await processJobs(ctx, { workerId });
+  return { scheduled, summary };
+}
+
 const SCHEDULE_HOUR = 6;
 const SCHEDULE_MINUTE = 30;
 
