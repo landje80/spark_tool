@@ -11,7 +11,8 @@
 //     draaide dit voorheen alleen met NODE_ENV=development en raakte dat pad dus nooit.
 import { spawn } from 'node:child_process';
 
-const ENTRY = 'dist/server/src/server/index.js';
+// Zelfde opstartbestand als in Plesk/Passenger (zie passenger-start.cjs).
+const ENTRY = 'passenger-start.cjs';
 
 async function waitFor(isExited, getStderr, fn, ms = 20000) {
   const end = Date.now() + ms;

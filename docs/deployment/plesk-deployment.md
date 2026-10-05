@@ -36,7 +36,7 @@ De deploy-acties in Plesk (§2 hieronder) draaien tot die controle `npm run buil
 ## 2. Applicatie
 
 1. Plesk → `tool.nicenext.nl` → Git → repository toevoegen (GitHub), branch `main`, "Zoekpad server" = `/tool.nicenext.nl/tool` (dus een submap `tool` binnen de vhost — **buiten** de document root).
-2. Plesk → Node.js: hoogst beschikbare versie (21.7.3 op dit moment — zie "Node-versie" hierboven voor waarom dat oké is), Application mode `production`, Application root = het pad uit stap 1, Document root = `.../tool/dist/web` (de gebouwde frontend zelf — **niet** een losse `public/`-map; zie "Document Root" hieronder), Startup file `dist/server/src/server/index.js`. Zet de omgevingsvariabelen uit `.env.example` (geheimen alleen hier).
+2. Plesk → Node.js: hoogst beschikbare versie (21.7.3 op dit moment — zie "Node-versie" hierboven voor waarom dat oké is), Application mode `production`, Application root = het pad uit stap 1, Document root = `.../tool/dist/web` (de gebouwde frontend zelf — **niet** een losse `public/`-map; zie "Document Root" hieronder), Startup file **`passenger-start.cjs`** (niet `dist/server/src/server/index.js`: zie §7). Zet de omgevingsvariabelen uit `.env.example` (geheimen alleen hier).
 3. **Laat het Git-paneel's "Aanvullende acties bij publicatie" leeg.** Op deze server draait dat in een beperkte/afgeschermde shell zonder bruikbare `PATH` (zelfs `whoami` en absolute paden naar `/opt/plesk/node/...` falen daar) — zie §7 hieronder. Voer de deploy-acties in plaats daarvan handmatig uit via SSH, na elke `git pull`/publicatie:
    ```bash
    cd /var/www/vhosts/nicenext.nl/tool.nicenext.nl/tool
@@ -87,7 +87,7 @@ noch Passenger's eigen log (zelfs met `PassengerLogLevel 6` en een volledige `ap
 alleen een `reload` — Passenger's Watchdog-proces leest sommige eigen directives niet opnieuw bij een
 kale reload) iets toont:
 
-1. Bevestig eerst of de app zelf werkt, los van Apache/Passenger: `sudo -u <systeemgebruiker> /opt/plesk/node/21/bin/node dist/server/src/server/index.js` vanuit de app-root. Start de app hier niet, dan zit het probleem in de code/omgevingsvariabelen, niet in Apache/Passenger.
+1. Bevestig eerst of de app zelf werkt, los van Apache/Passenger: `sudo -u <systeemgebruiker> /opt/plesk/node/21/bin/node passenger-start.cjs` vanuit de app-root. Start de app hier niet, dan zit het probleem in de code/omgevingsvariabelen, niet in Apache/Passenger.
 2. Vergelijk de gegenereerde vhost-config (`/etc/apache2/plesk.conf.d/vhosts/<domein>.conf`) met die van een bevestigd werkende Node.js-app op dezelfde server.
 3. Blijft het raadsel bestaan: dit is dan het moment om Plesk/hosting-support te vragen naar Passenger-spawngedrag en eventuele beveiligingsmodules (AppArmor, cgroups) die een proces stilletjes kunnen blokkeren zonder dat dit in Apache's of Passengers eigen logconfiguratie terechtkomt.
 
@@ -95,4 +95,5 @@ kale reload) iets toont:
 
 - **Git-paneel "Aanvullende acties bij publicatie" draait in een beperkte shell** zonder bruikbare `PATH` — zelfs `whoami` en absolute paden naar `/opt/plesk/node/...` falen daar met "No such file or directory" / "command not found". Gebruik SSH met een expliciete `PATH` in plaats daarvan (zie §2).
 - **Een losse systeem-`node` (v12, via apt) staat op de normale `PATH`**, naast Plesk's beheerde Node 21 onder `/opt/plesk/node/21/bin`. Alles wat een proces spawnt met een kaal `node`/`npm` (zoals `@prisma/client`'s eigen `postinstall`-hook) kan daardoor per ongeluk de oude v12 raken, ook als het eigen `npm`-commando zelf wél de juiste versie gebruikt. Zet `/opt/plesk/node/21/bin` expliciet vooraan in `PATH` voor elk commando dat geneste node-processen kan starten.
+- **Het Passenger-opstartbestand moet CommonJS zijn.** Passenger's node-loader (`/usr/share/passenger/helper-scripts/node-loader.js`, regel `require(startupFile)`) laadt het opstartbestand met `require()`. De app is een ES-module (`"type": "module"`) en Node < 22.12 (Plesk biedt 21.7.3) kan zo'n module niet `require()`-en (ERR_REQUIRE_ESM): de app start dan nooit, zonder enige logregel in Apache, nginx of Passenger — een 500 met Passenger's eigen foutpagina. Daarom is het startup file `passenger-start.cjs`, dat de app met een dynamische `import()` laadt. Dit was de hoofdoorzaak van de aanvankelijke 500's (zie de debug-sectie hierboven).
 - **`passenger-status` faalt met "too long unix socket path"** voor deze specifieke Apache-Passenger-instantie — dit bleek een afzonderlijk probleem met Passenger's eigen admin-/statussocket, niet (aantoonbaar) gerelateerd aan de requestafhandeling zelf.

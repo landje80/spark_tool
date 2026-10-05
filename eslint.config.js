@@ -14,7 +14,7 @@ export default tseslint.config(
     rules: { 'react-hooks/rules-of-hooks': 'error', 'react-hooks/exhaustive-deps': 'warn' },
   },
   {
-    files: ['src/**/*.ts', 'scripts/**/*.mjs', '.claude/hooks/*.mjs', '*.ts'],
+    files: ['src/**/*.ts', 'scripts/**/*.mjs', '.claude/hooks/*.mjs', '*.ts', '*.cjs'],
     ignores: ['src/web/**'],
     languageOptions: { globals: globals.node },
   },
