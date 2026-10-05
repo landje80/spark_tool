@@ -31,7 +31,7 @@ De deploy-acties in Plesk (§2 hieronder) draaien tot die controle `npm run buil
 2. **SSL:** Let's Encrypt-certificaat voor `tool.nicenext.nl` (en desgewenst `www.tool.nicenext.nl`) in Plesk (Websites & Domains → SSL/TLS), HTTPS-redirect aan.
 3. **MySQL:** database `spark_tool`, gebruiker `spark_app` met rechten `SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, DROP` alleen op deze database (DROP/ALTER nodig voor migraties; zie runbook voor een aparte migratiegebruiker als je least privilege wilt aanscherpen).
 4. **Entra:** app-registratie (single-tenant) met redirect `https://tool.nicenext.nl/auth/callback`; client secret; optionele `groups` claim.
-5. **Postmark:** server-token, verified sender, webhook-URL `https://spark:<WEBHOOK_SECRET>@tool.nicenext.nl/api/webhooks/postmark` (Fase F) op de "Default Transactional Stream" (Postmark's interne ID daarvoor is `outbound`, ook al toont de UI "Default Transactional Stream").
+5. **Postmark:** server-token, verified sender, webhook-URL `https://postmark:<POSTMARK_WEBHOOK_SECRET>@tool.nicenext.nl/webhooks/postmark` (Fase F; de gebruikersnaam moet exact `postmark` zijn, `public-routes.ts` weigert elke andere met 401; gebruik bij voorkeur een geheim met alleen letters en cijfers, zodat het niet hoeft te worden ge-escaped) op de "Default Transactional Stream" (Postmark's interne ID daarvoor is `outbound`, ook al toont de UI "Default Transactional Stream").
 
 ## 2. Applicatie
 
