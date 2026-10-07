@@ -84,6 +84,9 @@ export class AnthropicLeadClient implements LeadResearchClient {
           max_tokens: input.maxTokens,
           system: input.system,
           messages,
+          // Elke hervatting en elke interne zoekronde stuurt de hele, groeiende context (zoekresultaten) opnieuw
+          // mee; automatische caching laat die herhaling tegen leestarief (0,1×) lopen i.p.v. volle prijs.
+          cache_control: { type: 'ephemeral' },
           tools: researchTools(input.model, Math.max(1, remainingSearches), input.fetchDomain),
         })
         .finalMessage();

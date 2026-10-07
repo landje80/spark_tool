@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Leadonderzoek gebruikt automatische prompt caching (`cache_control` op het verzoek): bij de eerste echte runs bestond ~85% van de kosten (≈$1,30 van $1,53) uit invoertokens, omdat elke hervatting/zoekronde de hele groeiende context (zoekresultaten) opnieuw tegen volle prijs meestuurde. Of dit ook binnen één serverlus werkt, blijkt uit de nieuwe cachekolom bij een run.
+- Instellingen → Recente runs toont per run hoeveel kandidaten het model voorstelde, welke bij de controle werden afgewezen (met reden), de stopreden, een notitie van het model en de cachetokens. Eerder was een run met "0 toegevoegd" niet te onderscheiden van "niets gevonden" of "alles afgewezen".
+
 ## [0.2.0] — 2026-10-05
 
 Eerste versie die daadwerkelijk op de server draait (Fase H): `https://tool.nicenext.nl` op Plesk (s1.gblict.nl) met Apache/Passenger, Node 21.7.3, inloggen via Entra, een werkende Postmark-webhook (alle zes events geverifieerd) en een jobrunner die elke 10 minuten via een Plesk-taak wordt aangeroepen. De uitrol legde een reeks serverspecifieke valkuilen bloot; die staan in `docs/deployment/plesk-deployment.md` (§2, §3, §7).

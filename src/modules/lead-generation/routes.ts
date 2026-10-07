@@ -18,6 +18,35 @@ const resolveSchema = z.object({ action: z.enum(['accept', 'attach', 'reject']) 
 const toggleSchema = z.object({ enabled: z.boolean() }).strict();
 const actorOf = (req: Request): Actor => ({ id: req.user!.id, ip: req.ip });
 
+/**
+ * Waarom leverde een run weinig of niets op? Alleen de beknopte, veilige delen van de runmetadata (geen
+ * onderzoekstekst of URL-lijsten). Namen en notities komen uit modeluitvoer: de UI toont ze uitsluitend als tekst.
+ */
+function runDiagnostics(metadata: unknown): {
+  rejected: { name: string; reason: string }[];
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  researchStopReason: string | null;
+  notes: string | null;
+} {
+  const m = (metadata && typeof metadata === 'object' ? metadata : {}) as Record<string, unknown>;
+  const rejected = Array.isArray(m.rejected) ? m.rejected : [];
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return {
+    rejected: rejected
+      .filter(
+        (r): r is { name: string; reason: string } =>
+          !!r && typeof r.name === 'string' && typeof r.reason === 'string',
+      )
+      .slice(0, 10)
+      .map((r) => ({ name: r.name.slice(0, 80), reason: r.reason.slice(0, 160) })),
+    cacheReadTokens: num(m.cacheReadTokens),
+    cacheWriteTokens: num(m.cacheWriteTokens),
+    researchStopReason: typeof m.researchStopReason === 'string' ? m.researchStopReason : null,
+    notes: typeof m.notes === 'string' && m.notes ? m.notes.slice(0, 500) : null,
+  };
+}
+
 /** Leadgeneratie-API: runs bekijken/starten, reviewqueue en beheerstatus. Nooit tokens in antwoorden. */
 export function leadRouter(env: Env, db: PrismaClient): Router {
   const r = Router();
@@ -42,6 +71,7 @@ export function leadRouter(env: Env, db: PrismaClient): Router {
         webSearchRequests: x.webSearchRequests,
         estimatedCostUsd: Number(x.estimatedCostUsd ?? 0),
         errorMessage: x.errorMessage,
+        ...runDiagnostics(x.metadata),
       })),
     });
   });

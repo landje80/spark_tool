@@ -414,6 +414,8 @@ export async function runLeadGeneration(
           notes: parsed.data.notes.slice(0, 2000),
           seenUrlCount: research.seenUrls.length,
           webFetchRequests: usage.webFetchRequests,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheWriteTokens: usage.cacheWriteTokens,
           researchStopReason: research.stopReason,
           target,
         },

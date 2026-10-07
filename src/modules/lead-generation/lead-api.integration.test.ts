@@ -199,6 +199,34 @@ describe('runs starten en bekijken', () => {
     expect(res.body.runs[0]).toMatchObject({ acceptedCount: 4, estimatedCostUsd: 1.2345 });
   });
 
+  it('toont waarom een run niets opleverde, maar nooit de onderzoekstekst of URL-lijsten', async () => {
+    await db.leadGenerationRun.create({
+      data: {
+        runKey: 'r2',
+        status: 'SUCCEEDED',
+        candidatesCount: 2,
+        metadata: {
+          research: { text: 'GEHEIME ONDERZOEKSTEKST', seenUrls: ['https://a.nl'] },
+          rejected: [{ name: 'Bakkerij Jansen', reason: 'minder dan circa 5 medewerkers' }],
+          cacheReadTokens: 1200,
+          cacheWriteTokens: 300,
+          researchStopReason: 'end_turn',
+          notes: 'Geen nieuwe bedrijven in Zwolle',
+        },
+      },
+    });
+    const res = await (await as('MANAGER')).get('/leads/runs');
+    expect(res.body.runs[0]).toMatchObject({
+      candidatesCount: 2,
+      rejected: [{ name: 'Bakkerij Jansen', reason: 'minder dan circa 5 medewerkers' }],
+      cacheReadTokens: 1200,
+      cacheWriteTokens: 300,
+      researchStopReason: 'end_turn',
+      notes: 'Geen nieuwe bedrijven in Zwolle',
+    });
+    expect(JSON.stringify(res.body)).not.toContain('GEHEIME ONDERZOEKSTEKST');
+  });
+
   it('is alleen zichtbaar met lead.run, niet voor elke rol met prospect.read (kosten-/tokendata)', async () => {
     expect((await (await as('VIEWER')).get('/leads/runs')).status).toBe(403);
     expect((await (await as('SALES')).get('/leads/runs')).status).toBe(403);
