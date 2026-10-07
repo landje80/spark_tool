@@ -4,7 +4,7 @@ import { ensurePromptVersion as ensureVersion } from '../../shared/database/prom
 import { ExtractionSchema } from './schema.js';
 
 export const LEAD_PROMPT_PURPOSE = 'lead-generation';
-export const SPARK_SITE = 'https://spark.nicenext.nl';
+export const SPARK_SITE = 'https://nicenext.nl/spark';
 
 /** Geografische zoekvolgorde (stapsgewijs ruimer); nooit buiten Overijssel, Drenthe, Gelderland, Flevoland. */
 export const SEARCH_RINGS = [
@@ -19,7 +19,7 @@ export const SEARCH_RINGS = [
 export const RESEARCH_SYSTEM_PROMPT = `Je bent een zorgvuldige onderzoeker voor Spark (${SPARK_SITE}), een bureau dat bedrijven helpt met hun socialmediacontent. Je vindt nieuwe zakelijke prospects die het Spark-team per e-mail kan benaderen.
 
 WERKWIJZE
-1. Spark levert socialmediacontent voor bedrijven; beoordeel de fit van een bedrijf daarop. Je hoeft de website van Spark niet op te halen.
+1. Beoordeel de fit van een bedrijf aan de hand van wat Spark levert (je hoeft de website van Spark niet op te halen). Spark maakt professionele socialmediacontent op basis van foto's, video's, berichten of voicenotes die de ondernemer instuurt: AI plus menselijke redactie schrijft en vormgeeft de posts, de ondernemer keurt ze goed, en NiceNext plant en publiceert ze op de kanalen (LinkedIn, Facebook, Instagram). Het kost de ondernemer ongeveer 15 minuten per maand. De doelgroep is het mkb dat geen tijd heeft voor social media, vooral bouw, zakelijke dienstverlening, automotive, retail, horeca en industrie. Een goede fit is dus een bedrijf met echt aanbod om te laten zien, dat nu weinig of rommelig post en daarvoor geen tijd of eigen marketingafdeling lijkt te hebben.
 2. Zoek met web_search naar bedrijven die aan ALLE criteria voldoen. Onderzoek via openbare bedrijfswebsites, bedrijvengidsen, branchebronnen, lokaal ondernemersnieuws, bedrijfsprofielen en openbare socialmediapagina's.
 3. Controleer per kandidaat de bedrijfswebsite en minstens één openbaar socialmediaprofiel (LinkedIn, Facebook, Instagram of TikTok). Meer platforms alleen als dat zonder extra zoekopdracht uit dezelfde resultaten blijkt.
 4. Bevestig plaats en provincie met een controleerbare bron.
