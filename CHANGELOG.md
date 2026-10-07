@@ -5,6 +5,7 @@
 ### Changed
 
 - Leadonderzoek gebruikt automatische prompt caching (`cache_control` op het verzoek): bij de eerste echte runs bestond ~85% van de kosten (≈$1,30 van $1,53) uit invoertokens, omdat elke hervatting/zoekronde de hele groeiende context (zoekresultaten) opnieuw tegen volle prijs meestuurde. Of dit ook binnen één serverlus werkt, blijkt uit de nieuwe cachekolom bij een run.
+- Leadonderzoek haalt de Spark-site niet meer op (`web_fetch` verwijderd): `spark.nicenext.nl` is een doorverwijzing en de ophaalactie faalde, wat zoekbudget kostte; de run van 7 okt leverde daardoor 0 kandidaten ("Server tool use limit exceeded"). Het model hoort nu hoeveel zoekopdrachten het heeft en moet kandidaten per zoekopdracht combineren; één openbaar socialmediaprofiel per kandidaat volstaat voor het onderzoek (de validatie blijft ongewijzigd). Het app-log schrijft per onderzoeksbeurt de ruwe tokentelling.
 - Instellingen → Recente runs toont per run hoeveel kandidaten het model voorstelde, welke bij de controle werden afgewezen (met reden), de stopreden, een notitie van het model en de cachetokens. Eerder was een run met "0 toegevoegd" niet te onderscheiden van "niets gevonden" of "alles afgewezen".
 
 ## [0.2.0] — 2026-10-05

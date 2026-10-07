@@ -36,26 +36,12 @@ function add(a: Usage, b: Usage): Usage {
   };
 }
 
-function researchTools(model: string, maxSearches: number, fetchDomain: string) {
-  const dynamic = supportsDynamicFiltering(model);
+/** Alleen web search: bronnen lopen uitsluitend via zoekresultaten (en dus via de gecontroleerde URL-lijst). */
+function researchTools(model: string, maxSearches: number) {
   const tools: Anthropic.Messages.ToolUnion[] = [
-    dynamic
+    supportsDynamicFiltering(model)
       ? { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches }
       : { type: 'web_search_20250305', name: 'web_search', max_uses: maxSearches },
-    // Alleen de eigen website van Spark mag worden opgehaald; overige bronnen lopen via zoeken.
-    dynamic
-      ? {
-          type: 'web_fetch_20260209',
-          name: 'web_fetch',
-          max_uses: 3,
-          allowed_domains: [fetchDomain],
-        }
-      : {
-          type: 'web_fetch_20250910',
-          name: 'web_fetch',
-          max_uses: 3,
-          allowed_domains: [fetchDomain],
-        },
   ];
   return tools;
 }
@@ -87,7 +73,7 @@ export class AnthropicLeadClient implements LeadResearchClient {
           // Elke hervatting en elke interne zoekronde stuurt de hele, groeiende context (zoekresultaten) opnieuw
           // mee; automatische caching laat die herhaling tegen leestarief (0,1×) lopen i.p.v. volle prijs.
           cache_control: { type: 'ephemeral' },
-          tools: researchTools(input.model, Math.max(1, remainingSearches), input.fetchDomain),
+          tools: researchTools(input.model, Math.max(1, remainingSearches)),
         })
         .finalMessage();
       const turnUsage = usageOf(message.usage);

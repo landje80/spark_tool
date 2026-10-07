@@ -6,7 +6,7 @@ Dagelijks maximaal `LEAD_GENERATION_DAILY_TARGET` (10) nieuwe, gekwalificeerde p
 
 ## Pijplijn (twee fasen)
 
-1. **Onderzoek** (`LeadResearchClient.research`): Messages API met de server-side tools `web_search` (`max_uses = ANTHROPIC_WEB_SEARCH_MAX_USES`) en `web_fetch` (alleen `spark.nicenext.nl`, om Sparks diensten te lezen). Streamend; `pause_turn` wordt hervat (max. 5 keer). De client legt alle URL's vast die **werkelijk** in zoek- en ophaalresultaten voorkwamen.
+1. **Onderzoek** (`LeadResearchClient.research`): Messages API met de server-side tools `web_search` (`max_uses = ANTHROPIC_WEB_SEARCH_MAX_USES`) (zonder `web_fetch`: de Spark-site is een doorverwijzing en kon niet worden opgehaald; de diensten staan kort in de prompt). Streamend; `pause_turn` wordt hervat (max. 5 keer). De client legt alle URL's vast die **werkelijk** in zoek- en ophaalresultaten voorkwamen.
 2. **Extractie** (`LeadResearchClient.extract`): tweede aanroep **zonder tools** die de notities omzet naar het strikte schema (`output_config.format` via `zodOutputFormat`, `messages.parse`).
 3. **Server-side validatie** (`validate.ts`, Zod + regels): harde afwijzing bij regio/branche/website/socials/medewerkers-minimum of zonder verifieerbare bron; twijfel (lage betrouwbaarheid, onbekend medewerkersaantal, niet-gecontroleerde website, toon) → status `IN_REVIEW`.
 4. **Deduplicatie** onder de `PROSPECT_WRITE_LOCK`: exact → telt als duplicaat; fuzzy → `LeadCandidate` in de reviewqueue; anders prospect + bronnen + sociale profielen + activiteit.
@@ -38,4 +38,4 @@ Instellingen → Dagelijkse leadgeneratie: schakelaar, dagbudget/verbruik, laats
 
 ## Nog niet geverifieerd tegen de echte API
 
-Alle tests gebruiken een mock (`src/test/mock-lead-client.ts`). De echte `AnthropicLeadClient` is getypt tegen SDK 0.127 maar nog niet met een echte sleutel gedraaid. Bij de eerste echte run controleren: modelnaam/web search-beschikbaarheid voor het account, of `web_fetch` op `spark.nicenext.nl` slaagt, de werkelijke kosten versus de schatting, en de kwaliteit van de kandidaten.
+Alle tests gebruiken een mock (`src/test/mock-lead-client.ts`). De echte `AnthropicLeadClient` is getypt tegen SDK 0.127 maar nog niet met een echte sleutel gedraaid. Bij de eerste echte run controleren: modelnaam/web search-beschikbaarheid voor het account, de werkelijke kosten versus de schatting, en de kwaliteit van de kandidaten.

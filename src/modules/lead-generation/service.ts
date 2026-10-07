@@ -22,7 +22,6 @@ import {
   EXTRACT_SYSTEM_PROMPT,
   RESEARCH_SYSTEM_PROMPT,
   SEARCH_RINGS,
-  SPARK_SITE,
 } from './prompt.js';
 import { ExtractionSchema } from './schema.js';
 import { validateCandidate } from './validate.js';
@@ -286,13 +285,14 @@ export async function runLeadGeneration(
             ring,
             knownDomains: known.map((k) => k.domain).filter((d): d is string => !!d),
             knownNames: known.map((k) => k.companyName),
+            maxSearches: config.maxSearches,
             now,
           }),
           maxSearches: config.maxSearches,
           maxTokens: RESEARCH_MAX_TOKENS,
-          fetchDomain: new URL(SPARK_SITE).hostname,
           // Verbruik wordt per beurt geboekt (ook bij een latere crash) en het budget bewaakt de lus.
           onTurn: async (turn) => {
+            logger.info({ runId: run.id, ...turn }, 'Leadonderzoek: beurt afgerond');
             usage = addUsage(usage, turn);
             totalCost += await addRunUsage(db, run.id, config.model, turn);
             return spent + totalCost < config.maxDailyCost;

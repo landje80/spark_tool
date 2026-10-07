@@ -35,8 +35,6 @@ export interface ResearchInput {
   user: string;
   maxSearches: number;
   maxTokens: number;
-  /** Domein dat het model mag ophalen om de eigen dienstverlening van Spark te lezen. */
-  fetchDomain: string;
   /**
    * Wordt na elke beurt aangeroepen met het verbruik van die beurt (zodat kosten ook bij een latere fout
    * geboekt zijn). Geeft `false` terug om het onderzoek te stoppen, bv. omdat het dagbudget is bereikt.
