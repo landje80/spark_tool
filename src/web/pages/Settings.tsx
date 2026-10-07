@@ -37,12 +37,13 @@ interface Run {
   webSearchRequests: number;
   estimatedCostUsd: number;
   errorMessage: string | null;
-  candidatesCount: number;
-  rejected: { name: string; reason: string }[];
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  researchStopReason: string | null;
-  notes: string | null;
+  // Optioneel: een oudere servercode (nog niet herbouwd/herstart) levert deze velden niet.
+  candidatesCount?: number;
+  rejected?: { name: string; reason: string }[];
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  researchStopReason?: string | null;
+  notes?: string | null;
 }
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -248,21 +249,22 @@ export function SettingsPage() {
                     {t.cost}: {usd(r.estimatedCostUsd)} · {t.tokens}:{' '}
                     {r.inputTokens.toLocaleString('nl-NL')} /{' '}
                     {r.outputTokens.toLocaleString('nl-NL')} · {t.searches}: {r.webSearchRequests}
-                    {(r.cacheReadTokens > 0 || r.cacheWriteTokens > 0) && (
+                    {((r.cacheReadTokens ?? 0) > 0 || (r.cacheWriteTokens ?? 0) > 0) && (
                       <>
                         {' '}
-                        · {t.cacheTokens}: {r.cacheReadTokens.toLocaleString('nl-NL')} /{' '}
-                        {r.cacheWriteTokens.toLocaleString('nl-NL')}
+                        · {t.cacheTokens}: {(r.cacheReadTokens ?? 0).toLocaleString('nl-NL')} /{' '}
+                        {(r.cacheWriteTokens ?? 0).toLocaleString('nl-NL')}
                       </>
                     )}
                   </div>
                   <div className="muted small">
-                    {fmt(t.runCandidates, { n: r.candidatesCount })}
-                    {r.rejected.length > 0 && (
+                    {r.candidatesCount !== undefined &&
+                      fmt(t.runCandidates, { n: r.candidatesCount })}
+                    {(r.rejected?.length ?? 0) > 0 && (
                       <>
                         {' '}
                         · {t.runRejected}:{' '}
-                        {r.rejected.map((x) => `${x.name} (${x.reason})`).join('; ')}
+                        {(r.rejected ?? []).map((x) => `${x.name} (${x.reason})`).join('; ')}
                       </>
                     )}
                   </div>
