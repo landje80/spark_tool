@@ -118,7 +118,7 @@ export function validateCandidate(c: Candidate, seenUrls: readonly string[]): Va
   if (!city) return reject('plaats ontbreekt');
   if (!ALLOWED_PROVINCES.has(c.province))
     return reject('provincie valt buiten de toegestane regio');
-  if (c.industry === 'overig') return reject('branche valt buiten de doelgroep');
+  // Branche is geen afwijsgrond: ook 'overig' kan een goede lead zijn (het team beoordeelt de fit).
 
   const domain = normalizeDomain(c.website);
   if (!domain) return reject('geen geldige website');

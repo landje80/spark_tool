@@ -99,9 +99,10 @@ describe('validateCandidate', () => {
     });
   });
 
-  it('wijst af buiten de toegestane provincies of branches', () => {
+  it('wijst af buiten de toegestane provincies, maar niet op branche alleen', () => {
     expect(validateCandidate(base({ province: 'OTHER' }), SEEN)).toMatchObject({ ok: false });
-    expect(validateCandidate(base({ industry: 'overig' }), SEEN)).toMatchObject({ ok: false });
+    expect(validateCandidate(base({ industry: 'overig' }), SEEN)).toMatchObject({ ok: true });
+    expect(validateCandidate(base({ industry: 'bouw' }), SEEN)).toMatchObject({ ok: true });
   });
 
   it('wijst af bij te weinig medewerkers, maar markeert een onbekend aantal voor beoordeling', () => {

@@ -18,7 +18,9 @@ export const SOURCE_TYPES = [
 ] as const;
 export const INDUSTRIES = [
   'horeca',
+  'bouw',
   'installatietechniek',
+  'industrie',
   'retail',
   'automotive',
   'zakelijke dienstverlening',
