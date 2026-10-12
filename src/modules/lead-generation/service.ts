@@ -21,6 +21,7 @@ import {
   ensurePromptVersion,
   EXTRACT_SYSTEM_PROMPT,
   RESEARCH_SYSTEM_PROMPT,
+  FOCUS_INDUSTRIES,
   SEARCH_RINGS,
 } from './prompt.js';
 import { ExtractionSchema } from './schema.js';
@@ -63,8 +64,6 @@ const RESEARCH_MAX_TOKENS = 32_000;
 const EXTRACT_MAX_TOKENS = 32_000;
 /** Forfaitaire kostenpost als een betaalde aanroep faalt zonder dat we het verbruik kennen (timeout, crash). */
 const FAILED_CALL_PENALTY_USD = 0.25;
-/** Zoek pas een ruimere ring als de huidige ring al zoveel prospects per plaats bevat. */
-const PER_PLACE_SATURATION = 12;
 
 const ymd = (d: Date, tz: string): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);
@@ -85,13 +84,33 @@ export async function spentToday(
   return Number(agg._sum.estimatedCostUsd ?? 0);
 }
 
-/** Kiest de eerste zoekring waarvan de plaatsen nog niet verzadigd zijn met prospects. */
+/** Kiest het zoekgebied met de minste prospects per plaats (bij gelijkspel het eerste), zodat de dekking rouleert. */
 export async function pickRing(db: PrismaClient): Promise<readonly string[]> {
-  for (const ring of SEARCH_RINGS.slice(0, -1)) {
-    const existing = await db.prospect.count({ where: { city: { in: [...ring] } } });
-    if (existing < PER_PLACE_SATURATION * ring.length) return ring;
+  let best: { ring: readonly string[]; perPlace: number } | null = null;
+  for (const ring of SEARCH_RINGS) {
+    const existing = await db.prospect.count({
+      where: { anonymizedAt: null, city: { in: [...ring] } },
+    });
+    const perPlace = existing / ring.length;
+    if (!best || perPlace < best.perPlace) best = { ring, perPlace };
   }
-  return SEARCH_RINGS[SEARCH_RINGS.length - 1]!;
+  return best!.ring;
+}
+
+/** Kiest de kernbranche die in het CRM het minst voorkomt (bij gelijkspel de eerste in de lijst). */
+export async function pickFocus(db: PrismaClient): Promise<string> {
+  const rows = await db.prospect.groupBy({
+    by: ['industry'],
+    where: { anonymizedAt: null },
+    _count: { _all: true },
+  });
+  const counts = new Map(rows.map((r) => [r.industry?.toLowerCase() ?? '', r._count._all]));
+  let best: { industry: string; n: number } | null = null;
+  for (const industry of FOCUS_INDUSTRIES) {
+    const n = counts.get(industry) ?? 0;
+    if (!best || n < best.n) best = { industry, n };
+  }
+  return best!.industry;
 }
 
 async function bumpRun(
@@ -276,6 +295,7 @@ export async function runLeadGeneration(
         take: 400,
       });
       const ring = await pickRing(db);
+      const focus = await pickFocus(db);
       research = await guarded(() =>
         client.research({
           model: config.model,
@@ -283,6 +303,7 @@ export async function runLeadGeneration(
           user: buildResearchUserPrompt({
             target,
             ring,
+            focus,
             knownDomains: known.map((k) => k.domain).filter((d): d is string => !!d),
             knownNames: known.map((k) => k.companyName),
             maxSearches: config.maxSearches,

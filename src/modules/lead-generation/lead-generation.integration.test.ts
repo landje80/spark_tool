@@ -120,6 +120,30 @@ describe('dagelijkse leadgeneratie', () => {
     expect(await db.prospect.count()).toBe(2); // ook gearchiveerde prospects tellen als bestaand
   });
 
+  it('roteert zoekgebied en branche: het minst gedekte gebied en de minst voorkomende branche', async () => {
+    const client0 = new MockLeadClient([]);
+    await runLeadGeneration(deps(client0, { dailyTarget: 3 }), { trigger: 'manual' });
+    // Leeg CRM: eerste gebied en eerste kernbranche.
+    expect(client0.researchCalls[0]?.user).toContain('Zwolle, Hattem');
+    expect(client0.researchCalls[0]?.user).toContain('branche: bouw');
+
+    await db.leadGenerationRun.deleteMany();
+    await db.prospect.create({
+      data: {
+        companyName: 'Bouw Zwolle',
+        normalizedName: 'bouw zwolle',
+        city: 'Zwolle',
+        industry: 'bouw',
+        domain: 'bouwzwolle.nl',
+      },
+    });
+    const client1 = new MockLeadClient([]);
+    await runLeadGeneration(deps(client1, { dailyTarget: 3 }), { trigger: 'manual' });
+    // Zwolle-gebied heeft nu een prospect: het volgende gebied en de volgende branche zijn aan de beurt.
+    expect(client1.researchCalls[0]?.user).toContain('Deventer, Apeldoorn');
+    expect(client1.researchCalls[0]?.user).toContain('branche: installatietechniek');
+  });
+
   it('zet fuzzy matches in de reviewqueue in plaats van ze automatisch toe te voegen', async () => {
     const existing = await db.prospect.create({
       data: {
