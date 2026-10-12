@@ -66,6 +66,10 @@ const schema = z.object({
 
   LEAD_GENERATION_TIMEZONE: z.string().default('Europe/Amsterdam'),
   LEAD_GENERATION_DAILY_TARGET: z.coerce.number().int().min(1).max(25).default(10),
+  // Maximaal aantal leadruns per dag (de dagelijkse run plus aanvul-runs). Standaard 1 = één run per dag. Hoger
+  // betekent: na een run met resultaat start de volgende, tot het dagdoel is gehaald, het dagbudget bijna op is
+  // of dit maximum is bereikt.
+  LEAD_GENERATION_MAX_RUNS_PER_DAY: z.coerce.number().int().min(1).max(10).default(1),
   // Wachtwoord (Basic Auth, gebruiker "cron") voor de HTTP-trigger /internal/run-jobs. Leeg/ontbrekend
   // betekent "niet geconfigureerd" (endpoint antwoordt 503); alleen een ingevulde waarde wordt op lengte
   // gecontroleerd (een leeg .env.example-regel mag de app dus niet laten weigeren te starten).

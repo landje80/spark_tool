@@ -4,8 +4,15 @@ import { AnthropicLeadClient } from '../../integrations/anthropic/lead-client.js
 import type { LeadResearchClient } from '../../integrations/anthropic/types.js';
 import type { StoragePort } from '../../integrations/storage/types.js';
 import { logger } from '../../shared/logging/logger.js';
-import { runLeadGeneration, type LeadGenConfig } from '../lead-generation/service.js';
+import { SETTING_LEADGEN_ENABLED, getSetting } from '../../shared/settings.js';
+import {
+  localYmd,
+  nextTopUpSeq,
+  runLeadGeneration,
+  type LeadGenConfig,
+} from '../lead-generation/service.js';
 import { runTechnicalCheck } from '../media-processing/pipeline.js';
+import { enqueue } from './queue.js';
 
 export interface JobContext {
   db: PrismaClient;
@@ -26,6 +33,7 @@ export function leadGenConfig(env: Env): LeadGenConfig {
   return {
     model: env.ANTHROPIC_MODEL_LEAD_RESEARCH ?? '',
     extractModel: env.ANTHROPIC_MODEL_LEAD_EXTRACT || undefined,
+    maxRunsPerDay: env.LEAD_GENERATION_MAX_RUNS_PER_DAY,
     dailyTarget: env.LEAD_GENERATION_DAILY_TARGET,
     maxDailyCost: env.ANTHROPIC_MAX_DAILY_COST,
     maxSearches: env.ANTHROPIC_WEB_SEARCH_MAX_USES,
@@ -39,7 +47,11 @@ const STALE_PROCESSING_MS = 30 * 60 * 1000;
 
 export const HANDLERS: Record<string, JobHandler> = {
   'lead-generation': async (job, ctx) => {
-    const payload = (job.payload ?? {}) as { trigger?: 'daily' | 'manual'; actorId?: string };
+    const payload = (job.payload ?? {}) as {
+      trigger?: 'daily' | 'manual' | 'topup';
+      actorId?: string;
+      topUpSeq?: number;
+    };
     if (!isLeadGenConfigured(ctx.env)) {
       // Niet stil slagen: een niet-uitgevoerde dagelijkse run moet zichtbaar mislukken (retry/dead-letter).
       throw new Error(
@@ -50,11 +62,32 @@ export const HANDLERS: Record<string, JobHandler> = {
       throw new Error('Testomgeving: de echte Anthropic-client is niet toegestaan');
     }
     const client = ctx.clientFactory?.() ?? new AnthropicLeadClient(ctx.env.ANTHROPIC_API_KEY!);
+    const config = leadGenConfig(ctx.env);
+    const trigger = payload.trigger ?? 'daily';
     const outcome = await runLeadGeneration(
-      { db: ctx.db, client, config: leadGenConfig(ctx.env), now: ctx.now },
-      { trigger: payload.trigger ?? 'daily', actorId: payload.actorId ?? null },
+      { db: ctx.db, client, config, now: ctx.now },
+      { trigger, actorId: payload.actorId ?? null, topUpSeq: payload.topUpSeq },
     );
     logger.info({ jobId: job.id, outcome }, 'Leadgeneratie afgerond');
+
+    // Aanvul-run: alleen na de dagelijkse run of een eerdere aanvul-run (een handmatige run staat los), en alleen
+    // zolang de functie nog is ingeschakeld. De dedupeKey maakt het plannen idempotent bij een herhaalde job.
+    if (
+      trigger !== 'manual' &&
+      (await getSetting<boolean>(ctx.db, SETTING_LEADGEN_ENABLED, false))
+    ) {
+      const seq = await nextTopUpSeq(ctx.db, config, ctx.now(), outcome);
+      if (seq) {
+        const ymd = localYmd(ctx.now(), config.timezone);
+        await enqueue(ctx.db, {
+          type: 'lead-generation',
+          dedupeKey: `topup-${ymd}-${seq}`,
+          payload: { trigger: 'topup', topUpSeq: seq },
+          maxAttempts: 1, // elke poging kost geld; de volgende dag begint opnieuw
+        });
+        logger.info({ seq }, 'Aanvul-run voor leadgeneratie ingepland');
+      }
+    }
   },
 
   'media-technical-check': async (job, ctx) => {

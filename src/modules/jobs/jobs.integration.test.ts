@@ -222,3 +222,52 @@ describe('dagelijkse planning', () => {
     expect((await scheduleDailyJobs(ctx)).leadGeneration).toBe(false); // geen sleutel/model
   });
 });
+
+describe('aanvul-runs voor leadgeneratie', () => {
+  const NOW = new Date('2026-09-21T08:00:00Z');
+  const zwaan = () =>
+    candidate({
+      name: 'Café De Zwaan',
+      domain: 'cafedezwaan.nl',
+      linkedin: 'https://www.linkedin.com/company/cafe-de-zwaan',
+    });
+  const run = async (extraEnv: Record<string, string>, payload: object, enabled = true) => {
+    if (enabled) await setSetting(db, SETTING_LEADGEN_ENABLED, true);
+    const ctx: JobContext = {
+      db,
+      env: env(extraEnv),
+      now: () => NOW,
+      clientFactory: () => new MockLeadClient([zwaan()]),
+    };
+    await enqueue(db, {
+      type: 'lead-generation',
+      dedupeKey: 'daily-2026-09-21',
+      payload,
+      runAt: NOW,
+    });
+    await processJobs(ctx, { workerId: 't' });
+  };
+  const topups = () =>
+    db.job.findMany({
+      where: { dedupeKey: { startsWith: 'topup-' } },
+      orderBy: { dedupeKey: 'asc' },
+    });
+
+  it('plant na een run met resultaat een aanvul-run in en stopt zodra een run niets oplevert', async () => {
+    await run({ LEAD_GENERATION_MAX_RUNS_PER_DAY: '4' }, { trigger: 'daily' });
+    // Run 1 levert de Zwaan op (1 lead) → aanvul-run 2; die vindt alleen een dubbele (0 leads) → geen run 3.
+    expect((await topups()).map((j) => j.dedupeKey)).toEqual(['topup-2026-09-21-2']);
+    expect(await db.prospect.count()).toBe(1);
+  });
+
+  it('plant standaard (1 run per dag), voor een handmatige run of bij een uitgeschakelde functie niets in', async () => {
+    await run({}, { trigger: 'daily' });
+    expect(await topups()).toHaveLength(0);
+    await resetDb(db);
+    await run({ LEAD_GENERATION_MAX_RUNS_PER_DAY: '4' }, { trigger: 'manual' });
+    expect(await topups()).toHaveLength(0);
+    await resetDb(db);
+    await run({ LEAD_GENERATION_MAX_RUNS_PER_DAY: '4' }, { trigger: 'daily' }, false);
+    expect(await topups()).toHaveLength(0);
+  });
+});

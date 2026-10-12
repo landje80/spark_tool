@@ -3,7 +3,7 @@ import { getDb } from '../../shared/database/client.js';
 import { MockLeadClient, candidate } from '../../test/mock-lead-client.js';
 import { resetDb } from '../../test/helpers.js';
 import { ensurePromptVersion } from './prompt.js';
-import { runLeadGeneration, type LeadGenConfig } from './service.js';
+import { nextTopUpSeq, runLeadGeneration, type LeadGenConfig } from './service.js';
 
 const db = getDb();
 const NOW = new Date('2026-09-21T08:00:00Z');
@@ -111,6 +111,57 @@ describe('dagelijkse leadgeneratie', () => {
       Number(run.estimatedCostUsd),
       4,
     );
+  });
+
+  it('beslist over een aanvul-run: alleen met opbrengst, onder het maximum, doel en budget', async () => {
+    const out = await runLeadGeneration(deps(new MockLeadClient([zwaan(), vos()])), {
+      trigger: 'daily',
+    });
+    if (out.status !== 'finished') throw new Error('verwacht een afgeronde run');
+    expect(out.accepted).toBe(2);
+    const cfg = (over: Partial<LeadGenConfig>): LeadGenConfig => ({ ...config, ...over });
+
+    expect(await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3 }), NOW, out)).toBe(2);
+    // Standaard (geen maximum ingesteld) blijft het bij één run per dag.
+    expect(await nextTopUpSeq(db, cfg({}), NOW, out)).toBeNull();
+    expect(await nextTopUpSeq(db, cfg({ maxRunsPerDay: 1 }), NOW, out)).toBeNull();
+    // Dagdoel al gehaald.
+    expect(await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3, dailyTarget: 2 }), NOW, out)).toBeNull();
+    // Een volgende run (geschat op de kosten van de laatste) zou het dagbudget overschrijden.
+    expect(await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3, maxDailyCost: 1 }), NOW, out)).toBeNull();
+    // Geen opbrengst: de keten stopt.
+    expect(
+      await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3 }), NOW, { ...out, accepted: 0 }),
+    ).toBeNull();
+    expect(
+      await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3 }), NOW, {
+        status: 'skipped',
+        reason: 'x',
+      } as never),
+    ).toBeNull();
+  });
+
+  it('geeft een aanvul-run alleen het resterende dagdoel en is idempotent per volgnummer', async () => {
+    await runLeadGeneration(deps(new MockLeadClient([zwaan()]), { dailyTarget: 3 }), {
+      trigger: 'daily',
+    });
+    const client = new MockLeadClient([vos()]);
+    const out = await runLeadGeneration(deps(client, { dailyTarget: 3 }), {
+      trigger: 'topup',
+      topUpSeq: 2,
+    });
+    expect(out).toMatchObject({ status: 'finished', accepted: 1 });
+    // 3 (dagdoel) min 1 (al binnen) = 2
+    expect(client.researchCalls[0]?.user).toContain('maximaal 2 nieuwe');
+    expect(
+      (await db.leadGenerationRun.findFirstOrThrow({ where: { runKey: 'topup-2026-09-21-2' } }))
+        .status,
+    ).toBe('SUCCEEDED');
+    const again = await runLeadGeneration(deps(client, { dailyTarget: 3 }), {
+      trigger: 'topup',
+      topUpSeq: 2,
+    });
+    expect(again).toEqual({ status: 'skipped', reason: 'already_done' });
   });
 
   it('gebruikt zonder extractiemodel hetzelfde model voor onderzoek en extractie', async () => {

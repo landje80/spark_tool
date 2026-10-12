@@ -32,6 +32,8 @@ export interface LeadGenConfig {
   model: string;
   /** Apart model voor de extractie (fase 2); leeg = hetzelfde als `model`. */
   extractModel?: string;
+  /** Maximaal aantal runs per dag (dagelijks + aanvul-runs); leeg = 1. */
+  maxRunsPerDay?: number;
   dailyTarget: number;
   maxDailyCost: number;
   maxSearches: number;
@@ -150,6 +152,14 @@ async function addRunUsage(
   return cost;
 }
 
+export interface RunOpts {
+  /** 'topup' = aanvul-run na een run met resultaat, tot het dagdoel is gehaald. */
+  trigger: 'daily' | 'manual' | 'topup';
+  actorId?: string | null;
+  /** Volgnummer van de aanvul-run die dag (alleen bij 'topup'); maakt de runKey stabiel en idempotent. */
+  topUpSeq?: number;
+}
+
 type Claim = { skip: SkipReason } | { skip: null; run: LeadGenerationRun; target: number };
 
 /**
@@ -159,7 +169,7 @@ type Claim = { skip: SkipReason } | { skip: null; run: LeadGenerationRun; target
  */
 async function claimRun(
   deps: LeadGenDeps,
-  opts: { trigger: 'daily' | 'manual'; actorId?: string | null },
+  opts: RunOpts,
   runKey: string,
   now: Date,
 ): Promise<Claim> {
@@ -191,10 +201,19 @@ async function claimRun(
               );
               return { skip: 'budget_exceeded' };
             }
-            const target =
-              opts.trigger === 'daily'
-                ? config.dailyTarget - (existing?.acceptedCount ?? 0)
-                : config.dailyTarget;
+            let target: number;
+            if (opts.trigger === 'daily') {
+              target = config.dailyTarget - (existing?.acceptedCount ?? 0);
+            } else if (opts.trigger === 'topup') {
+              // Wat vandaag al is binnengehaald (alle runs, ook de eigen eerdere poging) gaat van het doel af.
+              const done = await tx.leadGenerationRun.aggregate({
+                where: { startedAt: { gte: startOfDay(now, config.timezone) } },
+                _sum: { acceptedCount: true },
+              });
+              target = config.dailyTarget - (done._sum.acceptedCount ?? 0);
+            } else {
+              target = config.dailyTarget;
+            }
             if (target <= 0) return { skip: 'target_met' };
 
             const prompt = await ensurePromptVersion(tx);
@@ -241,20 +260,50 @@ async function claimRun(
   }
 }
 
+/** Lokale datum (YYYY-MM-DD) in de leadgeneratie-tijdzone; deel van de runKey en de jobsleutel. */
+export const localYmd = (d: Date, tz: string): string => ymd(d, tz);
+
+/**
+ * Beslist of na een afgeronde run een aanvul-run moet volgen en geeft dan het volgnummer terug (anders null).
+ * Alleen als de laatste run leads opleverde (nul opbrengst stopt de keten), het dagdoel nog niet is gehaald, het
+ * maximum aantal runs per dag niet is bereikt en een volgende run (geschat op de kosten van de laatste) het
+ * dagbudget niet zou overschrijden.
+ */
+export async function nextTopUpSeq(
+  db: PrismaClient,
+  config: LeadGenConfig,
+  now: Date,
+  outcome: RunOutcome,
+): Promise<number | null> {
+  if (outcome.status !== 'finished' || outcome.accepted === 0) return null;
+  const since = startOfDay(now, config.timezone);
+  const runsToday = await db.leadGenerationRun.count({ where: { startedAt: { gte: since } } });
+  if (runsToday >= (config.maxRunsPerDay ?? 1)) return null;
+  const done = await db.leadGenerationRun.aggregate({
+    where: { startedAt: { gte: since } },
+    _sum: { acceptedCount: true },
+  });
+  if ((done._sum.acceptedCount ?? 0) >= config.dailyTarget) return null;
+  const spent = await spentToday(db, config.timezone, now);
+  if (spent + outcome.costUsd > config.maxDailyCost) return null;
+  return runsToday + 1;
+}
+
 /**
  * Voert één leadgeneratie-run uit. Idempotent per runKey (dagelijks: één succesvolle run per lokale dag);
  * veilig opnieuw te starten na een fout (bewaard onderzoek wordt hergebruikt, dus niet dubbel betaald);
  * verstuurt nooit e-mail. Gooit bij een technische fout (zodat de jobwachtrij opnieuw probeert) nadat de fout
  * op de run is vastgelegd.
  */
-export async function runLeadGeneration(
-  deps: LeadGenDeps,
-  opts: { trigger: 'daily' | 'manual'; actorId?: string | null },
-): Promise<RunOutcome> {
+export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promise<RunOutcome> {
   const { db, client, config } = deps;
   const now = (deps.now ?? (() => new Date()))();
   const runKey =
-    opts.trigger === 'daily' ? `daily-${ymd(now, config.timezone)}` : `manual-${now.getTime()}`;
+    opts.trigger === 'daily'
+      ? `daily-${ymd(now, config.timezone)}`
+      : opts.trigger === 'topup'
+        ? `topup-${ymd(now, config.timezone)}-${opts.topUpSeq ?? 1}`
+        : `manual-${now.getTime()}`;
 
   const claim = await claimRun(deps, opts, runKey, now);
   if (claim.skip) return { status: 'skipped', reason: claim.skip };
