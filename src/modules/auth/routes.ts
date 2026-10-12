@@ -7,7 +7,7 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { logger } from '../../shared/logging/logger.js';
 import { generateToken, safeEqualString } from '../../shared/security/tokens.js';
 import { audit } from '../audit/audit.js';
-import { evaluateAccess } from './access.js';
+import { allRoleGroupIds, deriveRole, evaluateAccess, roleGroupMapFromEnv } from './access.js';
 import { csrfProtection } from './middleware.js';
 
 /** Alleen paden binnen de app als returnTo toestaan (open-redirect voorkomen). */
@@ -31,6 +31,7 @@ function save(req: Request): Promise<void> {
 export function authRouter(env: Env, entra: EntraClient = new EntraClient(env)): Router {
   const router = Router();
   const basePath = env.APP_BASE_PATH;
+  const roleGroups = roleGroupMapFromEnv(env);
   const loginError = (code: string) => `${basePath}/login?error=${encodeURIComponent(code)}`;
 
   router.get('/login', async (req, res) => {
@@ -70,7 +71,8 @@ export function authRouter(env: Env, entra: EntraClient = new EntraClient(env)):
       {
         tenantId: env.ENTRA_TENANT_ID,
         clientId: env.ENTRA_CLIENT_ID,
-        allowedGroupIds: env.ENTRA_ALLOWED_GROUP_IDS,
+        // Leden van een rolgroep mogen ook inloggen, zonder dat de groep dubbel hoeft te worden ingesteld.
+        allowedGroupIds: [...env.ENTRA_ALLOWED_GROUP_IDS, ...allRoleGroupIds(roleGroups)],
         allowedUserIds: env.ENTRA_ALLOWED_USER_IDS,
       },
       pending.nonce,
@@ -86,26 +88,65 @@ export function authRouter(env: Env, entra: EntraClient = new EntraClient(env)):
       return res.redirect(loginError('denied'));
     }
 
-    // Eerste toegestane gebruiker wordt ADMIN zolang er nog geen admin bestaat (bootstrap);
-    // onder een lock zodat twee gelijktijdige eerste logins niet allebei admin worden.
+    // Rol: met rolgroepen in Entra bepalen die de rol bij elke login (Entra is dan de bron van waarheid);
+    // zonder rolgroepen blijft de rol uit de database staan (eerste gebruiker ADMIN, overigen VIEWER).
+    // Onder een lock zodat twee gelijktijdige eerste logins niet allebei admin worden en de
+    // laatste-admin-bescherming niet kan worden omzeild.
+    const entraRole = deriveRole(claims, roleGroups);
     let user;
     try {
       user = await db.$transaction(
         (tx) =>
           withNamedLock(tx, 'spark:user-provision', async () => {
-            const hasAdmin = (await tx.user.count({ where: { role: 'ADMIN', active: true } })) > 0;
-            return tx.user.upsert({
-              where: { entraOid: decision.oid },
-              create: {
-                entraOid: decision.oid,
-                tenantId: env.ENTRA_TENANT_ID,
+            const existing = await tx.user.findUnique({ where: { entraOid: decision.oid } });
+            if (!existing) {
+              const hasAdmin =
+                (await tx.user.count({ where: { role: 'ADMIN', active: true } })) > 0;
+              return tx.user.create({
+                data: {
+                  entraOid: decision.oid,
+                  tenantId: env.ENTRA_TENANT_ID,
+                  name: decision.name,
+                  email: decision.email,
+                  role: entraRole ?? (hasAdmin ? 'VIEWER' : 'ADMIN'),
+                  lastLoginAt: new Date(),
+                },
+              });
+            }
+            let role = entraRole ?? existing.role;
+            // Nooit de enige actieve admin degraderen: een verkeerd ingestelde groep mag de app niet
+            // onbeheerbaar maken. Herstel gebeurt door de beheerder in de ADMIN-groep te zetten.
+            if (existing.role === 'ADMIN' && existing.active && role !== 'ADMIN') {
+              const otherAdmins = await tx.user.count({
+                where: { role: 'ADMIN', active: true, id: { not: existing.id } },
+              });
+              if (otherAdmins === 0) {
+                logger.warn(
+                  { userId: existing.id, reqId: req.id },
+                  'Laatste actieve admin blijft ADMIN ondanks Entra-groepen (controleer ENTRA_GROUP_IDS_ADMIN)',
+                );
+                role = 'ADMIN';
+              }
+            }
+            const updated = await tx.user.update({
+              where: { id: existing.id },
+              data: {
                 name: decision.name,
                 email: decision.email,
-                role: hasAdmin ? 'VIEWER' : 'ADMIN',
                 lastLoginAt: new Date(),
+                role,
               },
-              update: { name: decision.name, email: decision.email, lastLoginAt: new Date() },
             });
+            if (role !== existing.role) {
+              await audit(tx, {
+                actorId: null,
+                action: 'user.role.change',
+                entityType: 'User',
+                entityId: existing.id,
+                metadata: { from: existing.role, to: role, source: 'entra_groups' },
+              });
+            }
+            return updated;
           }),
         { timeout: 30_000 },
       );

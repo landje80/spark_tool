@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { IdTokenClaims } from '../../integrations/microsoft/entra.js';
-import { evaluateAccess, type AccessPolicy } from './access.js';
+import { deriveRole, evaluateAccess, type AccessPolicy, type RoleGroupMap } from './access.js';
 
 const policy: AccessPolicy = {
   tenantId: 'tenant-1',
@@ -61,5 +61,45 @@ describe('evaluateAccess', () => {
       'n1',
     );
     expect(d).toEqual({ allowed: false, reason: 'groups_overage_not_allowlisted' });
+  });
+});
+
+describe('deriveRole', () => {
+  const map: RoleGroupMap = {
+    ADMIN: ['g-admin'],
+    MANAGER: ['g-manager'],
+    SALES: ['g-sales'],
+    CONTENT_EDITOR: ['g-content'],
+    VIEWER: ['g-viewer'],
+  };
+  const withGroups = (groups: string[] | undefined, extra: Partial<IdTokenClaims> = {}) => ({
+    ...base,
+    groups,
+    ...extra,
+  });
+
+  it('geeft per rolgroep de bijbehorende rol', () => {
+    expect(deriveRole(withGroups(['g-admin']), map)).toBe('ADMIN');
+    expect(deriveRole(withGroups(['g-manager']), map)).toBe('MANAGER');
+    expect(deriveRole(withGroups(['g-sales']), map)).toBe('SALES');
+    expect(deriveRole(withGroups(['g-content']), map)).toBe('CONTENT_EDITOR');
+    expect(deriveRole(withGroups(['g-viewer']), map)).toBe('VIEWER');
+  });
+
+  it('kiest de hoogste rol bij meerdere rolgroepen', () => {
+    expect(deriveRole(withGroups(['g-viewer', 'g-sales', 'g-manager']), map)).toBe('MANAGER');
+    expect(deriveRole(withGroups(['g-sales', 'g-admin']), map)).toBe('ADMIN');
+  });
+
+  it('geeft VIEWER (minste rechten) als er geen rolgroep matcht', () => {
+    expect(deriveRole(withGroups(['group-a', 'andere-groep']), map)).toBe('VIEWER');
+    expect(deriveRole(withGroups([]), map)).toBe('VIEWER');
+  });
+
+  it('wijzigt niets zonder rolgroepen, zonder groepenlijst of bij groepen-overage', () => {
+    expect(deriveRole(withGroups(['g-admin']), {})).toBeNull();
+    expect(deriveRole(withGroups(['g-admin']), { ADMIN: [], VIEWER: [] })).toBeNull();
+    expect(deriveRole(withGroups(undefined), map)).toBeNull();
+    expect(deriveRole(withGroups(undefined, { _claim_names: { groups: 'src1' } }), map)).toBeNull();
   });
 });

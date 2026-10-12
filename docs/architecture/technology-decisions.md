@@ -36,7 +36,7 @@ Eigen `PrismaSessionStore` (sessie-id in de database als SHA-256-hash). `express
 
 ## ADR-004: Autorisatie via Entra-toewijzing + rollen in de database
 
-Toegang tot de app vereist een expliciete `ENTRA_ALLOWED_USER_IDS`- of `ENTRA_ALLOWED_GROUP_IDS`-match (default deny). Rollen (ADMIN/MANAGER/SALES/CONTENT_EDITOR/VIEWER) staan in de database; nieuwe gebruikers krijgen `VIEWER`. Zolang er geen actieve ADMIN bestaat wordt de eerste toegestane gebruiker ADMIN (bootstrap). Groepen-overage (>200 groepen) wordt geweigerd tenzij de gebruiker via ID is toegestaan.
+Toegang tot de app vereist een expliciete `ENTRA_ALLOWED_USER_IDS`- of `ENTRA_ALLOWED_GROUP_IDS`-match (default deny). Rollen (ADMIN/MANAGER/SALES/CONTENT_EDITOR/VIEWER) staan in de database. Zijn er geen rolgroepen ingesteld, dan krijgen nieuwe gebruikers `VIEWER` en wordt, zolang er geen actieve ADMIN bestaat, de eerste toegestane gebruiker ADMIN (bootstrap); de rol wijzigt dan alleen in de database. Zijn er `ENTRA_GROUP_IDS_<ROL>`-groepen ingesteld, dan is Entra de bron van waarheid: bij elke login geldt de hoogste rol waarvan iemand lid is (alleen in de toegangsgroep = `VIEWER`), wijzigingen komen in het auditlog (`user.role.change`), en de enige actieve ADMIN wordt nooit gedegradeerd (anders kan een verkeerd ingestelde groep de app onbeheerbaar maken). Groepen-overage (>200 groepen) wordt geweigerd tenzij de gebruiker via ID is toegestaan; bij zo'n toegang via ID, of een token zonder groepenlijst, blijft de rol ongewijzigd.
 
 ## ADR-005: Eigen subdomein (`tool.nicenext.nl`) in plaats van een sub-URI op een gedeeld domein
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Rollen via Entra-groepen: `ENTRA_GROUP_IDS_ADMIN`, `_MANAGER`, `_SALES`, `_CONTENT_EDITOR` en `_VIEWER` koppelen een groep aan elk van de vijf rollen. Leden mogen inloggen en krijgen bij elke login de hoogste rol waarvan ze lid zijn (alleen in de toegangsgroep = `VIEWER`); rolwijzigingen komen in het auditlog (`user.role.change`). De enige actieve admin wordt nooit gedegradeerd (met logwaarschuwing), en bij groepen-overage of een token zonder groepenlijst blijft de rol ongewijzigd. Zonder rolgroepen blijft het oude gedrag (eerste gebruiker ADMIN, overigen VIEWER). Eerder was er geen enkele manier om een rol te wijzigen.
+
 ### Changed
 
 - Bestaande prospects worden vooraf uitgesloten van het leadonderzoek: hun domeinen gaan als `blocked_domains` (max. 500, meest recente eerst; platforms zoals LinkedIn en Facebook nooit) naar de zoektool, zodat het model ze niet in de resultaten ziet en er geen zoekopdrachten of tokens aan opgaan; de rest staat nog als tekst in de prompt. Namen blijven als tekst meegegeven voor naam-plus-plaats-duplicaten. De prompt laat het model eerst plaats en medewerkersaantal bevestigen en afvallers (te klein, buiten het gebied) meteen laten vallen voordat het website en socials onderzoekt.

@@ -60,8 +60,8 @@ const app = createApp(env, { entra: entra as unknown as EntraClient });
 
 /** Doorloopt GET /login (zet de oidc-sessie) en GET /callback met de gegeven code, op één agent
  * (cookie blijft behouden tussen de twee requests, zoals een echte browser). */
-async function loginFlow(code: string, state = 'mock-state') {
-  const agent = request.agent(app);
+async function loginFlow(code: string, state = 'mock-state', target: typeof app = app) {
+  const agent = request.agent(target);
   const loginRes = await agent.get(`${AUTH}/login`);
   expect(loginRes.status).toBe(302);
   const callbackRes = await agent.get(`${AUTH}/callback`).query({ code, state });
@@ -190,5 +190,99 @@ describe('login/callback-flow', () => {
 
     const afterLogout = await agent.get(`${API}/me`);
     expect(afterLogout.status).toBe(401);
+  });
+});
+
+describe('rollen via Entra-groepen', () => {
+  const G = {
+    admin: 'grp-admin',
+    manager: 'grp-manager',
+    sales: 'grp-sales',
+    content: 'grp-content',
+    viewer: 'grp-viewer',
+  };
+  const roleEnv = testEnv({
+    ENTRA_GROUP_IDS_ADMIN: G.admin,
+    ENTRA_GROUP_IDS_MANAGER: G.manager,
+    ENTRA_GROUP_IDS_SALES: G.sales,
+    ENTRA_GROUP_IDS_CONTENT_EDITOR: G.content,
+    ENTRA_GROUP_IDS_VIEWER: G.viewer,
+  });
+  const roleApp = createApp(roleEnv, { entra: entra as unknown as EntraClient });
+
+  const login = async (oid: string, groups: string[] | undefined, extra = {}) => {
+    entra.byCode.set(`code-${oid}`, claimsFor(oid, { groups, ...extra }));
+    return loginFlow(`code-${oid}`, 'mock-state', roleApp);
+  };
+  const roleOf = async (oid: string) =>
+    (await db.user.findUnique({ where: { entraOid: oid } }))?.role;
+
+  it('geeft elke rolgroep de bijbehorende rol, ook aan de eerste gebruiker (geen automatische admin)', async () => {
+    await login('u-viewer', [G.viewer]);
+    expect(await roleOf('u-viewer')).toBe('VIEWER');
+    await login('u-sales', [G.sales]);
+    expect(await roleOf('u-sales')).toBe('SALES');
+    await login('u-content', [G.content]);
+    expect(await roleOf('u-content')).toBe('CONTENT_EDITOR');
+    await login('u-manager', [G.manager]);
+    expect(await roleOf('u-manager')).toBe('MANAGER');
+    await login('u-admin', [G.admin]);
+    expect(await roleOf('u-admin')).toBe('ADMIN');
+  });
+
+  it('kiest de hoogste rol bij meerdere groepen en laat lid van een rolgroep zonder losse allowlist inloggen', async () => {
+    const { callbackRes } = await login('u-multi', [G.viewer, G.manager, G.sales]);
+    expect(callbackRes.headers.location).toBe(`${roleEnv.APP_BASE_PATH}/dashboard`);
+    expect(await roleOf('u-multi')).toBe('MANAGER');
+  });
+
+  it('past de rol aan bij een volgende login en legt dat vast in het auditlog', async () => {
+    await login('u-admin', [G.admin]); // zodat degraderen hieronder niet de laatste admin treft
+    await login('u-wissel', [G.admin]);
+    expect(await roleOf('u-wissel')).toBe('ADMIN');
+    await login('u-wissel', [G.sales]);
+    expect(await roleOf('u-wissel')).toBe('SALES');
+    const user = await db.user.findUniqueOrThrow({ where: { entraOid: 'u-wissel' } });
+    const entry = await db.auditLog.findFirst({
+      where: { action: 'user.role.change', entityId: user.id },
+    });
+    expect(entry?.metadata).toMatchObject({ from: 'ADMIN', to: 'SALES', source: 'entra_groups' });
+  });
+
+  it('degradeert nooit de enige actieve admin, ook al zit die niet in de ADMIN-groep', async () => {
+    await login('u-enige', [G.admin]);
+    await login('u-enige', [G.viewer]); // groep verkeerd ingesteld
+    expect(await roleOf('u-enige')).toBe('ADMIN');
+  });
+
+  it('laat de rol ongewijzigd bij groepen-overage en bij een token zonder groepenlijst', async () => {
+    await login('u-admin', [G.admin]);
+    await login('u-overage', [G.sales]);
+    // Overage: Entra stuurt geen lijst; toegang via gebruikers-ID blijft mogelijk, de rol verandert niet.
+    const overageEnv = testEnv({
+      ENTRA_GROUP_IDS_SALES: G.sales,
+      ENTRA_ALLOWED_USER_IDS: 'u-overage',
+    });
+    const overageApp = createApp(overageEnv, { entra: entra as unknown as EntraClient });
+    entra.byCode.set('code-overage-2', {
+      ...claimsFor('u-overage'),
+      groups: undefined,
+      _claim_names: { groups: 'src1' },
+    });
+    const { callbackRes } = await loginFlow('code-overage-2', 'mock-state', overageApp);
+    expect(callbackRes.headers.location).toBe(`${overageEnv.APP_BASE_PATH}/dashboard`);
+    expect(await roleOf('u-overage')).toBe('SALES');
+  });
+
+  it('zonder rolgroepen blijft het oude gedrag: eerste gebruiker ADMIN, volgende VIEWER, rol ongewijzigd', async () => {
+    entra.byCode.set('code-1', claimsFor(ALLOWED_OID, { groups: ['willekeurig'] }));
+    await loginFlow('code-1');
+    entra.byCode.set('code-2', claimsFor(INACTIVE_OID, { groups: ['willekeurig'] }));
+    await loginFlow('code-2');
+    expect(await roleOf(ALLOWED_OID)).toBe('ADMIN');
+    expect(await roleOf(INACTIVE_OID)).toBe('VIEWER');
+    await db.user.update({ where: { entraOid: INACTIVE_OID }, data: { role: 'MANAGER' } });
+    await loginFlow('code-2');
+    expect(await roleOf(INACTIVE_OID)).toBe('MANAGER');
   });
 });

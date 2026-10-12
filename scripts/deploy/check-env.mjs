@@ -23,8 +23,19 @@ const placeholder = (v) => !v || /CHANGE_ME|^0{8}-0{4}/.test(v);
 const missing = REQUIRED.filter((k) => placeholder(process.env[k]));
 const notes = RECOMMENDED.filter((k) => placeholder(process.env[k]));
 
-if (!process.env.ENTRA_ALLOWED_GROUP_IDS && !process.env.ENTRA_ALLOWED_USER_IDS) {
-  missing.push('ENTRA_ALLOWED_GROUP_IDS of ENTRA_ALLOWED_USER_IDS');
+const ROLE_GROUP_VARS = [
+  'ENTRA_GROUP_IDS_ADMIN',
+  'ENTRA_GROUP_IDS_MANAGER',
+  'ENTRA_GROUP_IDS_SALES',
+  'ENTRA_GROUP_IDS_CONTENT_EDITOR',
+  'ENTRA_GROUP_IDS_VIEWER',
+];
+if (
+  !process.env.ENTRA_ALLOWED_GROUP_IDS &&
+  !process.env.ENTRA_ALLOWED_USER_IDS &&
+  ROLE_GROUP_VARS.every((k) => !process.env[k])
+) {
+  missing.push('ENTRA_ALLOWED_GROUP_IDS, ENTRA_ALLOWED_USER_IDS of ENTRA_GROUP_IDS_<ROL>');
 }
 
 // Spiegelt de productie-afdwingingen uit src/config/env.ts (parseEnv): dit script is de enige

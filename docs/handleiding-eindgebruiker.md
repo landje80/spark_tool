@@ -75,5 +75,5 @@ Heeft de prospect gereageerd, bijvoorbeeld telefonisch? Leg dat vast onder **"An
 1. **Mails gaan nooit automatisch weg.** Elke mail vraagt een voorbeeld en jouw expliciete bevestiging.
 2. **Leadbeoordeling:** twijfelgevallen gaan naar de reviewqueue en worden pas een prospect nadat jij **"Toevoegen als nieuwe prospect"** kiest.
 3. **Rechten hangen af van je rol.** Beheerder: alles. Manager: alles behalve instellingen en gebruikersbeheer. Verkoop: prospects, taken en mailen. Content-redacteur: prospects bekijken, uploadlinks en content beoordelen. Kijker: alleen bekijken. Zie je een knop niet, dan heb je dat recht niet.
-4. **Eerste keer inloggen:** nieuwe gebruikers beginnen met alleen-lezen rechten. Heb je meer rechten nodig, vraag dat aan een beheerder.
+4. **Welke rol je hebt:** dat hangt af van de groep waar je in zit bij het inloggen. Heb je meer rechten nodig, vraag dan aan een beheerder om je in de juiste groep te zetten. Daarna log je opnieuw in.
 5. **Bij een foutmelding:** probeer het opnieuw. Lukt het nog steeds niet, meld het (met de melding en de prospectnaam) aan een beheerder. Bij een mislukte verzending is er niets verstuurd.

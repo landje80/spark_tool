@@ -34,6 +34,14 @@ const schema = z.object({
   ENTRA_POST_LOGOUT_REDIRECT_URI: z.url(),
   ENTRA_ALLOWED_GROUP_IDS: csv,
   ENTRA_ALLOWED_USER_IDS: csv,
+  // Entra-groep (object-ID's, komma-gescheiden) per rol. Leden mogen inloggen en krijgen bij elke login de
+  // hoogste rol waarvan ze lid zijn. Alle vijf leeg = rollen niet via Entra beheerd (dan blijft de rol in de
+  // database zoals die is: eerste gebruiker ADMIN, overigen VIEWER).
+  ENTRA_GROUP_IDS_ADMIN: csv,
+  ENTRA_GROUP_IDS_MANAGER: csv,
+  ENTRA_GROUP_IDS_SALES: csv,
+  ENTRA_GROUP_IDS_CONTENT_EDITOR: csv,
+  ENTRA_GROUP_IDS_VIEWER: csv,
 
   POSTMARK_SERVER_TOKEN: z.string().optional(),
   POSTMARK_FROM_EMAIL: z.email().optional(),
@@ -93,8 +101,21 @@ export function parseEnv(source: NodeJS.ProcessEnv): Env {
     if (new URL(env.APP_BASE_URL).protocol !== 'https:') {
       throw new Error('APP_BASE_URL moet https zijn in productie');
     }
-    if (env.ENTRA_ALLOWED_GROUP_IDS.length === 0 && env.ENTRA_ALLOWED_USER_IDS.length === 0) {
-      throw new Error('Stel ENTRA_ALLOWED_GROUP_IDS of ENTRA_ALLOWED_USER_IDS in (default deny)');
+    const roleGroups = [
+      env.ENTRA_GROUP_IDS_ADMIN,
+      env.ENTRA_GROUP_IDS_MANAGER,
+      env.ENTRA_GROUP_IDS_SALES,
+      env.ENTRA_GROUP_IDS_CONTENT_EDITOR,
+      env.ENTRA_GROUP_IDS_VIEWER,
+    ];
+    if (
+      env.ENTRA_ALLOWED_GROUP_IDS.length === 0 &&
+      env.ENTRA_ALLOWED_USER_IDS.length === 0 &&
+      roleGroups.every((g) => g.length === 0)
+    ) {
+      throw new Error(
+        'Stel ENTRA_ALLOWED_GROUP_IDS, ENTRA_ALLOWED_USER_IDS of ENTRA_GROUP_IDS_<ROL> in (default deny)',
+      );
     }
   }
   return env;
