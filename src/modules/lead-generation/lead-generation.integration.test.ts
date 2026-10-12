@@ -93,6 +93,32 @@ describe('dagelijkse leadgeneratie', () => {
     expect(await db.outreachDraft.count()).toBe(0);
   });
 
+  it('gebruikt een apart extractiemodel en splitst de kosten per fase', async () => {
+    const client = new MockLeadClient([zwaan()]);
+    await runLeadGeneration(deps(client, { extractModel: 'claude-sonnet-5' }), {
+      trigger: 'daily',
+    });
+    expect(client.researchCalls[0]?.model).toBe('claude-opus-5');
+    expect(client.extractCalls[0]?.model).toBe('claude-sonnet-5');
+
+    const run = await db.leadGenerationRun.findFirstOrThrow();
+    const meta = run.metadata as Record<string, number | string>;
+    // Extractie (20k in / 6k uit) op Sonnet 5-tarief ($2/$10 per Mtok).
+    expect(meta.extractCostUsd).toBeCloseTo((20_000 * 2 + 6_000 * 10) / 1_000_000, 4);
+    expect(meta.extractModel).toBe('claude-sonnet-5');
+    expect(meta.extractOutputTokens).toBe(6_000);
+    expect(Number(meta.researchCostUsd) + Number(meta.extractCostUsd)).toBeCloseTo(
+      Number(run.estimatedCostUsd),
+      4,
+    );
+  });
+
+  it('gebruikt zonder extractiemodel hetzelfde model voor onderzoek en extractie', async () => {
+    const client = new MockLeadClient([zwaan()]);
+    await runLeadGeneration(deps(client), { trigger: 'daily' });
+    expect(client.extractCalls[0]?.model).toBe('claude-opus-5');
+  });
+
   it('is idempotent: een tweede run op dezelfde dag doet niets en roept Anthropic niet aan', async () => {
     const client = new MockLeadClient([zwaan()]);
     await runLeadGeneration(deps(client), { trigger: 'daily' });

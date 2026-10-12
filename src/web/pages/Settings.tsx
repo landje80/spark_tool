@@ -44,6 +44,11 @@ interface Run {
   cacheWriteTokens?: number;
   researchStopReason?: string | null;
   notes?: string | null;
+  researchCostUsd?: number | null;
+  extractCostUsd?: number | null;
+  researchOutputTokens?: number | null;
+  extractOutputTokens?: number | null;
+  extractModel?: string | null;
 }
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -257,6 +262,17 @@ export function SettingsPage() {
                       </>
                     )}
                   </div>
+                  {r.researchCostUsd != null && r.extractCostUsd != null && (
+                    <div className="muted small">
+                      {fmt(t.phaseCosts, {
+                        research: usd(r.researchCostUsd),
+                        extract: usd(r.extractCostUsd),
+                        researchOut: (r.researchOutputTokens ?? 0).toLocaleString('nl-NL'),
+                        extractOut: (r.extractOutputTokens ?? 0).toLocaleString('nl-NL'),
+                      })}
+                      {r.extractModel ? ` (${r.extractModel})` : ''}
+                    </div>
+                  )}
                   <div className="muted small">
                     {r.candidatesCount !== undefined &&
                       fmt(t.runCandidates, { n: r.candidatesCount })}

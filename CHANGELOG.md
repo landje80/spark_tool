@@ -4,6 +4,7 @@
 
 ### Added
 
+- Optioneel apart model voor de extractiefase van leadgeneratie (`ANTHROPIC_MODEL_LEAD_EXTRACT`, bv. `claude-sonnet-5`; leeg = zelfde model als het onderzoek, dus geen gedragswijziging). Aanleiding: op een run van $0,96 waren uitvoertokens de grootste post ($0,53 van 21k tokens), en de extractie is een mechanische omzetting van notities naar JSON. Instellingen → Recente runs toont nu per run de kosten en uitvoertokens van onderzoek en extractie, zodat het effect meetbaar is, en de notitie van het model wordt niet meer na 500 tekens afgekapt.
 - Favicon in de huisstijl: de "S." van het woordmerk (Bebas Neue als vectorpad, oranje punt) op donkerbruin, als `favicon.svg`, `favicon.ico` (16, 32 en 48 px) en `apple-touch-icon.png`. Staan in `src/web/public/` en worden bij `npm run build:web` naar `dist/web` gekopieerd.
 - Rollen via Entra-groepen: `ENTRA_GROUP_IDS_ADMIN`, `_MANAGER`, `_SALES`, `_CONTENT_EDITOR` en `_VIEWER` koppelen een groep aan elk van de vijf rollen. Leden mogen inloggen en krijgen bij elke login de hoogste rol waarvan ze lid zijn (alleen in de toegangsgroep = `VIEWER`); rolwijzigingen komen in het auditlog (`user.role.change`). De enige actieve admin wordt nooit gedegradeerd (met logwaarschuwing), en bij groepen-overage of een token zonder groepenlijst blijft de rol ongewijzigd. Zonder rolgroepen blijft het oude gedrag (eerste gebruiker ADMIN, overigen VIEWER). Eerder was er geen enkele manier om een rol te wijzigen.
 

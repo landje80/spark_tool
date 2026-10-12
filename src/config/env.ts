@@ -58,6 +58,8 @@ const schema = z.object({
 
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL_LEAD_RESEARCH: z.string().optional(),
+  // Optioneel apart (goedkoper) model voor de extractie naar JSON; leeg = zelfde model als het onderzoek.
+  ANTHROPIC_MODEL_LEAD_EXTRACT: z.string().optional(),
   ANTHROPIC_MODEL_CONTENT: z.string().optional(),
   ANTHROPIC_MAX_DAILY_COST: z.coerce.number().positive().default(5),
   ANTHROPIC_WEB_SEARCH_MAX_USES: z.coerce.number().int().min(1).max(100).default(20),

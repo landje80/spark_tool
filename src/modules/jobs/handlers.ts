@@ -25,6 +25,7 @@ export const isLeadGenConfigured = (env: Env): boolean =>
 export function leadGenConfig(env: Env): LeadGenConfig {
   return {
     model: env.ANTHROPIC_MODEL_LEAD_RESEARCH ?? '',
+    extractModel: env.ANTHROPIC_MODEL_LEAD_EXTRACT || undefined,
     dailyTarget: env.LEAD_GENERATION_DAILY_TARGET,
     maxDailyCost: env.ANTHROPIC_MAX_DAILY_COST,
     maxSearches: env.ANTHROPIC_WEB_SEARCH_MAX_USES,

@@ -28,10 +28,17 @@ function runDiagnostics(metadata: unknown): {
   cacheWriteTokens: number;
   researchStopReason: string | null;
   notes: string | null;
+  researchCostUsd: number | null;
+  extractCostUsd: number | null;
+  researchOutputTokens: number | null;
+  extractOutputTokens: number | null;
+  extractModel: string | null;
 } {
   const m = (metadata && typeof metadata === 'object' ? metadata : {}) as Record<string, unknown>;
   const rejected = Array.isArray(m.rejected) ? m.rejected : [];
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  // Ontbreekt bij runs van vóór de uitsplitsing per fase: dan null in plaats van een misleidende 0.
+  const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   return {
     rejected: rejected
       .filter(
@@ -43,7 +50,12 @@ function runDiagnostics(metadata: unknown): {
     cacheReadTokens: num(m.cacheReadTokens),
     cacheWriteTokens: num(m.cacheWriteTokens),
     researchStopReason: typeof m.researchStopReason === 'string' ? m.researchStopReason : null,
-    notes: typeof m.notes === 'string' && m.notes ? m.notes.slice(0, 500) : null,
+    notes: typeof m.notes === 'string' && m.notes ? m.notes.slice(0, 2000) : null,
+    researchCostUsd: numOrNull(m.researchCostUsd),
+    extractCostUsd: numOrNull(m.extractCostUsd),
+    researchOutputTokens: numOrNull(m.researchOutputTokens),
+    extractOutputTokens: numOrNull(m.extractOutputTokens),
+    extractModel: typeof m.extractModel === 'string' ? m.extractModel.slice(0, 100) : null,
   };
 }
 

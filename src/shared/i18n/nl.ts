@@ -402,6 +402,8 @@ export const nl = {
     runRejected: 'Afgewezen bij controle',
     runNotes: 'Notitie van het model',
     cacheTokens: 'Cache (gelezen/geschreven)',
+    phaseCosts:
+      'Onderzoek: {research} ({researchOut} uitvoertokens) · Extractie: {extract} ({extractOut} uitvoertokens)',
     cost: 'Kosten',
     tokens: 'Tokens (in/uit)',
     searches: 'Zoekopdrachten',

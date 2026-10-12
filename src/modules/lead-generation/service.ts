@@ -30,6 +30,8 @@ import { validateCandidate } from './validate.js';
 
 export interface LeadGenConfig {
   model: string;
+  /** Apart model voor de extractie (fase 2); leeg = hetzelfde als `model`. */
+  extractModel?: string;
   dailyTarget: number;
   maxDailyCost: number;
   maxSearches: number;
@@ -353,9 +355,12 @@ export async function runLeadGeneration(
     }
 
     // ── Fase 2: gestructureerde extractie, strikt gevalideerd ──
+    const extractModel = config.extractModel ?? config.model;
+    const researchCostUsd = totalCost;
+    const researchOutputTokens = usage.outputTokens;
     const extraction = await guarded(() =>
       client.extract({
-        model: config.model,
+        model: extractModel,
         system: EXTRACT_SYSTEM_PROMPT,
         user: buildExtractUserPrompt({
           notes: research.text,
@@ -368,7 +373,8 @@ export async function runLeadGeneration(
       }),
     );
     usage = addUsage(usage, extraction.usage);
-    totalCost += await addRunUsage(db, run.id, config.model, extraction.usage);
+    const extractCostUsd = await addRunUsage(db, run.id, extractModel, extraction.usage);
+    totalCost += extractCostUsd;
     const parsed = ExtractionSchema.safeParse(extraction.data);
     if (!parsed.success) throw new Error('Modeluitvoer voldoet niet aan het schema');
 
@@ -441,6 +447,11 @@ export async function runLeadGeneration(
           notes: parsed.data.notes.slice(0, 2000),
           seenUrlCount: research.seenUrls.length,
           webFetchRequests: usage.webFetchRequests,
+          researchCostUsd,
+          extractCostUsd,
+          researchOutputTokens,
+          extractOutputTokens: extraction.usage.outputTokens,
+          extractModel,
           cacheReadTokens: usage.cacheReadTokens,
           cacheWriteTokens: usage.cacheWriteTokens,
           researchStopReason: research.stopReason,
