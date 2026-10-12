@@ -262,7 +262,7 @@ export async function runLeadGeneration(
   const spent = await spentToday(db, config.timezone, now);
 
   const errors: string[] = [];
-  const rejected: { name: string; reason: string }[] = [];
+  const rejected: { name: string; reason: string; website?: string; socials?: string[] }[] = [];
   let usage = emptyUsage();
   let totalCost = 0;
 
@@ -386,7 +386,14 @@ export async function runLeadGeneration(
       if (accepted >= target) break;
       const result = validateCandidate(raw, research.seenUrls);
       if (!result.ok) {
-        rejected.push({ name: raw.companyName.slice(0, 120), reason: result.reason });
+        // Wat het model opgaf bewaren we mee (website en socialmedia-URL's), zodat een afwijzing te beoordelen is:
+        // ontbrak de gegevens in het onderzoek, of keurde de validatie ten onrechte af?
+        rejected.push({
+          name: raw.companyName.slice(0, 120),
+          reason: result.reason,
+          website: (raw.website ?? '').slice(0, 200),
+          socials: raw.socials.slice(0, 5).map((s) => `${s.platform}: ${s.url}`.slice(0, 200)),
+        });
         continue;
       }
       const clean = result.candidate;

@@ -207,7 +207,17 @@ describe('runs starten en bekijken', () => {
         candidatesCount: 2,
         metadata: {
           research: { text: 'GEHEIME ONDERZOEKSTEKST', seenUrls: ['https://a.nl'] },
-          rejected: [{ name: 'Bakkerij Jansen', reason: 'minder dan circa 5 medewerkers' }],
+          rejected: [
+            // Run van vóór het bewaren van wat het model opgaf: geen website/socials in de metadata.
+            { name: 'Bakkerij Jansen', reason: 'minder dan circa 5 medewerkers' },
+            {
+              name: 'Bouw Kok',
+              reason: 'geen geldig socialmediaprofiel',
+              website: 'https://bouwkok.nl',
+              socials: ['FACEBOOK: https://facebook.com/bouwkok'],
+            },
+            { name: 'Zonder Gegevens', reason: 'geen geldige website', website: '', socials: [] },
+          ],
           cacheReadTokens: 1200,
           cacheWriteTokens: 300,
           researchStopReason: 'end_turn',
@@ -218,7 +228,16 @@ describe('runs starten en bekijken', () => {
     const res = await (await as('MANAGER')).get('/leads/runs');
     expect(res.body.runs[0]).toMatchObject({
       candidatesCount: 2,
-      rejected: [{ name: 'Bakkerij Jansen', reason: 'minder dan circa 5 medewerkers' }],
+      rejected: [
+        { name: 'Bakkerij Jansen', hasDetails: false, website: null, socials: [] },
+        {
+          name: 'Bouw Kok',
+          hasDetails: true,
+          website: 'https://bouwkok.nl',
+          socials: ['FACEBOOK: https://facebook.com/bouwkok'],
+        },
+        { name: 'Zonder Gegevens', hasDetails: true, website: null, socials: [] },
+      ],
       cacheReadTokens: 1200,
       cacheWriteTokens: 300,
       researchStopReason: 'end_turn',

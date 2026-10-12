@@ -39,7 +39,13 @@ interface Run {
   errorMessage: string | null;
   // Optioneel: een oudere servercode (nog niet herbouwd/herstart) levert deze velden niet.
   candidatesCount?: number;
-  rejected?: { name: string; reason: string }[];
+  rejected?: {
+    name: string;
+    reason: string;
+    hasDetails?: boolean;
+    website?: string | null;
+    socials?: string[];
+  }[];
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
   researchStopReason?: string | null;
@@ -280,7 +286,17 @@ export function SettingsPage() {
                       <>
                         {' '}
                         · {t.runRejected}:{' '}
-                        {(r.rejected ?? []).map((x) => `${x.name} (${x.reason})`).join('; ')}
+                        {(r.rejected ?? [])
+                          .map((x) => {
+                            // Wat het model opgaf: laat zien of de gegevens ontbraken of onterecht werden afgekeurd.
+                            if (!x.hasDetails) return `${x.name} (${x.reason})`;
+                            const given = [
+                              x.website ? `website: ${x.website}` : 'geen website',
+                              ...(x.socials?.length ? x.socials : ['geen socials']),
+                            ].join(', ');
+                            return `${x.name} (${x.reason} · opgegeven: ${given})`;
+                          })
+                          .join('; ')}
                       </>
                     )}
                   </div>

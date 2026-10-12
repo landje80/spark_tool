@@ -23,7 +23,14 @@ const actorOf = (req: Request): Actor => ({ id: req.user!.id, ip: req.ip });
  * onderzoekstekst of URL-lijsten). Namen en notities komen uit modeluitvoer: de UI toont ze uitsluitend als tekst.
  */
 function runDiagnostics(metadata: unknown): {
-  rejected: { name: string; reason: string }[];
+  rejected: {
+    name: string;
+    reason: string;
+    /** false bij runs van vóór het bewaren van wat het model opgaf: dan zegt een lege website niets. */
+    hasDetails: boolean;
+    website: string | null;
+    socials: string[];
+  }[];
   cacheReadTokens: number;
   cacheWriteTokens: number;
   researchStopReason: string | null;
@@ -42,11 +49,19 @@ function runDiagnostics(metadata: unknown): {
   return {
     rejected: rejected
       .filter(
-        (r): r is { name: string; reason: string } =>
+        (r): r is { name: string; reason: string; website?: unknown; socials?: unknown } =>
           !!r && typeof r.name === 'string' && typeof r.reason === 'string',
       )
       .slice(0, 10)
-      .map((r) => ({ name: r.name.slice(0, 80), reason: r.reason.slice(0, 160) })),
+      .map((r) => ({
+        name: r.name.slice(0, 80),
+        reason: r.reason.slice(0, 160),
+        hasDetails: typeof r.website === 'string',
+        website: typeof r.website === 'string' && r.website ? r.website.slice(0, 200) : null,
+        socials: Array.isArray(r.socials)
+          ? r.socials.filter((s): s is string => typeof s === 'string').map((s) => s.slice(0, 200))
+          : [],
+      })),
     cacheReadTokens: num(m.cacheReadTokens),
     cacheWriteTokens: num(m.cacheWriteTokens),
     researchStopReason: typeof m.researchStopReason === 'string' ? m.researchStopReason : null,
