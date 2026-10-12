@@ -23,6 +23,7 @@ import {
   RESEARCH_SYSTEM_PROMPT,
   FOCUS_INDUSTRIES,
   SEARCH_RINGS,
+  splitKnownDomains,
 } from './prompt.js';
 import { ExtractionSchema } from './schema.js';
 import { validateCandidate } from './validate.js';
@@ -292,8 +293,11 @@ export async function runLeadGeneration(
         where: { anonymizedAt: null },
         select: { domain: true, companyName: true },
         orderBy: { createdAt: 'desc' },
-        take: 400,
+        take: 2000,
       });
+      const { blocked, overflow } = splitKnownDomains(
+        known.map((k) => k.domain).filter((d): d is string => !!d),
+      );
       const ring = await pickRing(db);
       const focus = await pickFocus(db);
       research = await guarded(() =>
@@ -304,11 +308,13 @@ export async function runLeadGeneration(
             target,
             ring,
             focus,
-            knownDomains: known.map((k) => k.domain).filter((d): d is string => !!d),
-            knownNames: known.map((k) => k.companyName),
+            blockedCount: blocked.length,
+            knownDomains: overflow,
+            knownNames: known.slice(0, 400).map((k) => k.companyName),
             maxSearches: config.maxSearches,
             now,
           }),
+          blockedDomains: blocked,
           maxSearches: config.maxSearches,
           maxTokens: RESEARCH_MAX_TOKENS,
           // Verbruik wordt per beurt geboekt (ook bij een latere crash) en het budget bewaakt de lus.

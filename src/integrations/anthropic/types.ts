@@ -35,6 +35,8 @@ export interface ResearchInput {
   user: string;
   maxSearches: number;
   maxTokens: number;
+  /** Domeinen die nooit in zoekresultaten mogen verschijnen (bestaande prospects): het model ziet ze niet. */
+  blockedDomains?: string[];
   /**
    * Wordt na elke beurt aangeroepen met het verbruik van die beurt (zodat kosten ook bij een latere fout
    * geboekt zijn). Geeft `false` terug om het onderzoek te stoppen, bv. omdat het dagbudget is bereikt.

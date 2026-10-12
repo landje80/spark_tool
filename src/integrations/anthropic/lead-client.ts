@@ -37,11 +37,12 @@ function add(a: Usage, b: Usage): Usage {
 }
 
 /** Alleen web search: bronnen lopen uitsluitend via zoekresultaten (en dus via de gecontroleerde URL-lijst). */
-function researchTools(model: string, maxSearches: number) {
+function researchTools(model: string, maxSearches: number, blockedDomains: string[] = []) {
+  const blocked = blockedDomains.length ? { blocked_domains: blockedDomains } : {};
   const tools: Anthropic.Messages.ToolUnion[] = [
     supportsDynamicFiltering(model)
-      ? { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches }
-      : { type: 'web_search_20250305', name: 'web_search', max_uses: maxSearches },
+      ? { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches, ...blocked }
+      : { type: 'web_search_20250305', name: 'web_search', max_uses: maxSearches, ...blocked },
   ];
   return tools;
 }
@@ -73,7 +74,7 @@ export class AnthropicLeadClient implements LeadResearchClient {
           // Elke hervatting en elke interne zoekronde stuurt de hele, groeiende context (zoekresultaten) opnieuw
           // mee; automatische caching laat die herhaling tegen leestarief (0,1×) lopen i.p.v. volle prijs.
           cache_control: { type: 'ephemeral' },
-          tools: researchTools(input.model, Math.max(1, remainingSearches)),
+          tools: researchTools(input.model, Math.max(1, remainingSearches), input.blockedDomains),
         })
         .finalMessage();
       const turnUsage = usageOf(message.usage);

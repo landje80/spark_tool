@@ -116,7 +116,9 @@ describe('dagelijkse leadgeneratie', () => {
     const client = new MockLeadClient([zwaan(), vos()]);
     const out = await runLeadGeneration(deps(client), { trigger: 'daily' });
     expect(out).toMatchObject({ accepted: 1, duplicates: 1 });
-    expect(client.researchCalls[0]?.user).toContain('cafedezwaan.nl');
+    // Bestaande domeinen worden vooraf uit de zoekresultaten geblokkeerd (en staan dus niet meer als tekst in de prompt).
+    expect(client.researchCalls[0]?.blockedDomains).toEqual(['cafedezwaan.nl']);
+    expect(client.researchCalls[0]?.user).toContain('Café De Zwaan');
     expect(await db.prospect.count()).toBe(2); // ook gearchiveerde prospects tellen als bestaand
   });
 
