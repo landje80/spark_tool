@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- De onderzoeksprompt bevat een zoekstrategie op basis van eerdere runs: bedrijfsnamen via ledenlijsten van ondernemersverenigingen, industriekringen en bedrijventerreinen, branche- en MKB-magazines en lokaal ondernemersnieuws; geen vacature-aggregators, SEO-landingspagina's of platformen als Werkspot en Trustoo; en bedrijfsdatabases (Drimble, Gouden Gids) niet vertrouwen voor medewerkersaantallen maar de omvang bevestigen via de LinkedIn-bedrijfspagina, een team- of vacaturepagina of een persbericht. Aanleiding: het model gaf in meerdere runs zelf aan dat die bronnen betere, herleidbare bedrijven opleveren, en Drimble gaf herhaaldelijk een verkeerde omvang (1 tot 4 medewerkers).
+
 ### Added
 
 - De branche waarop een leadrun zich richt rouleert nu echt: een branche waarop een van de laatste drie runs zich al richtte wordt overgeslagen. Aanleiding: de minst vertegenwoordigde branche wint, dus een branche met weinig aanbod (bouw: veel micro-bedrijven) bleef steeds de minst vertegenwoordigde en dus steeds de gekozen branche, ook direct na een bouw-run met weinig resultaat. De gekozen branche en het zoekgebied worden per run bewaard en getoond in Instellingen → Recente runs ("Branche: … · Gebied: …").

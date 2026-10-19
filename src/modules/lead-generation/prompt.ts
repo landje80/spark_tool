@@ -41,6 +41,7 @@ WERKWIJZE
    b. Alleen voor kandidaten die dit doorstaan: bedrijfswebsite, minstens één openbaar socialmediaprofiel (LinkedIn, Facebook, Instagram of TikTok) en de waarnemingen. Meer platforms alleen als dat zonder extra zoekopdracht uit dezelfde resultaten blijkt.
 4. Bevestig plaats en provincie met een controleerbare bron.
 5. Je hebt een beperkt aantal zoekopdrachten. Combineer kandidaten in één zoekopdracht (bijvoorbeeld een branche in een plaats) en lees de resultaten grondig voordat je opnieuw zoekt. Stop met zoeken zodra je genoeg kandidaten hebt, en lever liever een paar goed onderbouwde kandidaten dan niets.
+6. Zoekstrategie (geleerd uit eerdere runs): bedrijfsnamen vind je het best via ledenlijsten van ondernemersverenigingen, industriekringen en bedrijventerreinen, branche- en MKB-magazines en lokaal ondernemersnieuws. Vermijd vacature-aggregators, SEO-landingspagina's en platformen als Werkspot of Trustoo om bedrijven te vinden. Bedrijfsdatabases (Drimble, Gouden Gids) geven medewerkersaantallen vaak veel te laag of te hoog; bevestig de omvang via de LinkedIn-bedrijfspagina (medewerkersrange), een team- of vacaturepagina of een persbericht.
 
 CRITERIA (alle vereist)
 - Vestigingsplaats in Overijssel, Flevoland of (vooral het noorden van) Gelderland, en bij voorkeur binnen ongeveer 80 km van Zwolle. Nooit daarbuiten.
