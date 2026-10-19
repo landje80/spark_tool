@@ -61,6 +61,56 @@ const GENERIC_LOCAL = new Set([
 const DISPARAGING =
   /\b(lelijk|slecht|waardeloos|amateuristisch|beroerd|troep|rommelig|onprofessioneel|stom|belabberd|armoedig|knullig)\b/i;
 
+/**
+ * Is dit de URL van een profiel/pagina en niet van een bericht, video of een andere pagina? Het model vult een
+ * socialmediaveld soms met een bron-URL (een TikTok-video, de eigen website, een vestigingspagina) als het geen
+ * profiel-URL heeft gevonden; zo'n URL mag nooit als profiel in het CRM komen. Het pad is al genormaliseerd
+ * (kleine letters, zonder query en afsluitende slash).
+ */
+export function isProfilePath(platform: string, url: string): boolean {
+  let segs: string[];
+  try {
+    segs = new URL(url).pathname.split('/').filter(Boolean);
+  } catch {
+    return false;
+  }
+  const first = segs[0] ?? '';
+  switch (platform) {
+    case 'INSTAGRAM':
+      // Alleen /<gebruikersnaam>; geen /p/, /reel/, /explore/, ...
+      return (
+        segs.length === 1 &&
+        /^[a-z0-9._]{1,30}$/.test(first) &&
+        !['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'accounts'].includes(first)
+      );
+    case 'TIKTOK':
+      return segs.length === 1 && /^@[a-z0-9._]{2,}$/.test(first);
+    case 'FACEBOOK': {
+      // profile.php?id=… zou na normalisatie (zonder query) een nietszeggende URL worden.
+      if (segs.length === 0 || first === 'profile.php') return false;
+      const NOT_A_PAGE = new Set([
+        'posts',
+        'photos',
+        'videos',
+        'permalink.php',
+        'watch',
+        'events',
+        'groups',
+        'sharer',
+        'sharer.php',
+        'share',
+        'story.php',
+        'reel',
+        'reels',
+        'hashtag',
+      ]);
+      return !segs.some((s) => NOT_A_PAGE.has(s));
+    }
+    default:
+      return true; // LinkedIn heeft een eigen padcontrole (/company/, /school/, /showcase/)
+  }
+}
+
 /** Canonieke URL voor vergelijking: zonder www, query, fragment en afsluitende slash. */
 export function canonicalUrl(input: string): string | null {
   try {
@@ -144,6 +194,7 @@ export function validateCandidate(c: Candidate, seenUrls: readonly string[]): Va
       // Persoonlijke LinkedIn-profielen (/in/) zijn persoonsgegevens en worden nooit opgeslagen.
       if (s.platform === 'LINKEDIN' && !/^https:\/\/[^/]+\/(company|school|showcase)\//.test(url))
         return [];
+      if (!isProfilePath(s.platform, url)) return [];
       return [
         {
           platform: s.platform,

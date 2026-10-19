@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { estimateCostUsd, supportsDynamicFiltering } from '../../integrations/anthropic/cost.js';
 import { emptyUsage } from '../../integrations/anthropic/types.js';
 import { CandidateSchema, ExtractionSchema, type Candidate } from './schema.js';
-import { canonicalUrl, validateCandidate } from './validate.js';
+import { canonicalUrl, isProfilePath, validateCandidate } from './validate.js';
 
 const SEEN = [
   'https://www.cafedezwaan.nl/over-ons',
@@ -285,5 +285,62 @@ describe('schema en kosten', () => {
     expect(supportsDynamicFiltering('claude-opus-5')).toBe(true);
     expect(supportsDynamicFiltering('claude-sonnet-5')).toBe(true);
     expect(supportsDynamicFiltering('claude-haiku-4-5')).toBe(false);
+  });
+});
+
+describe('isProfilePath en socials in validateCandidate', () => {
+  const social = (platform: 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK' | 'LINKEDIN', url: string) => ({
+    platform,
+    url,
+    accountName: null,
+    observations: [],
+  });
+  const linkedin = social('LINKEDIN', 'https://www.linkedin.com/company/cafe-de-zwaan');
+  const socialsOf = (extra: ReturnType<typeof social>[]) => {
+    const r = validateCandidate(base({ socials: [linkedin, ...extra] }), SEEN);
+    if (!r.ok) throw new Error(`verwacht ok: ${r.reason}`);
+    return r.candidate.socials.map((s) => s.platform);
+  };
+
+  it('accepteert echte profiel-URL’s', () => {
+    expect(isProfilePath('INSTAGRAM', 'https://instagram.com/cafedezwaan')).toBe(true);
+    expect(isProfilePath('TIKTOK', 'https://tiktok.com/@cafedezwaan')).toBe(true);
+    expect(isProfilePath('FACEBOOK', 'https://facebook.com/cafedezwaan')).toBe(true);
+    expect(isProfilePath('FACEBOOK', 'https://facebook.com/people/cafe/1000123')).toBe(true);
+  });
+
+  it('wijst berichten, video’s en andere pagina’s af als profiel', () => {
+    expect(isProfilePath('INSTAGRAM', 'https://instagram.com/p/abc123')).toBe(false);
+    expect(isProfilePath('INSTAGRAM', 'https://instagram.com/reel/abc123')).toBe(false);
+    expect(isProfilePath('INSTAGRAM', 'https://instagram.com/')).toBe(false);
+    expect(
+      isProfilePath('TIKTOK', 'https://tiktok.com/@visitalmere/video/7453002100788825346'),
+    ).toBe(false);
+    expect(isProfilePath('TIKTOK', 'https://tiktok.com/visitalmere')).toBe(false);
+    expect(isProfilePath('FACEBOOK', 'https://facebook.com/cafe/posts/123')).toBe(false);
+    expect(isProfilePath('FACEBOOK', 'https://facebook.com/profile.php')).toBe(false);
+    expect(isProfilePath('FACEBOOK', 'https://facebook.com/')).toBe(false);
+  });
+
+  it('laat een verkeerd ingevulde socialmedia-URL weg en behoudt de rest', () => {
+    expect(
+      socialsOf([
+        social('INSTAGRAM', 'https://www.tiktok.com/@visitalmere/video/7453002100788825346'),
+        social('FACEBOOK', 'https://facebook.com/cafedezwaan'),
+      ]),
+    ).toEqual(['LINKEDIN', 'FACEBOOK']);
+  });
+
+  it('wijst een kandidaat af als alleen verkeerde URL’s als profiel zijn opgegeven', () => {
+    const r = validateCandidate(
+      base({
+        socials: [
+          social('FACEBOOK', 'https://www.hypotheekshop.nl/vestigingen/epe/'),
+          social('INSTAGRAM', 'https://instagram.com/p/abc123'),
+        ],
+      }),
+      SEEN,
+    );
+    expect(r).toEqual({ ok: false, reason: 'geen geldig socialmediaprofiel' });
   });
 });

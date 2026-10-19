@@ -19,6 +19,10 @@
 - Leadonderzoek haalt de Spark-site niet meer op (`web_fetch` verwijderd): `spark.nicenext.nl` is een doorverwijzing en de ophaalactie faalde, wat zoekbudget kostte; de run van 7 okt leverde daardoor 0 kandidaten ("Server tool use limit exceeded"). Het model hoort nu hoeveel zoekopdrachten het heeft en moet kandidaten per zoekopdracht combineren; één openbaar socialmediaprofiel per kandidaat volstaat voor het onderzoek (de validatie blijft ongewijzigd). Het app-log schrijft per onderzoeksbeurt de ruwe tokentelling.
 - Instellingen → Recente runs toont per run hoeveel kandidaten het model voorstelde, welke bij de controle werden afgewezen (met reden), de stopreden, een notitie van het model en de cachetokens. Eerder was een run met "0 toegevoegd" niet te onderscheiden van "niets gevonden" of "alles afgewezen".
 
+### Fixed
+
+- Een kandidaat kon met een verkeerde socialmedia-URL in het CRM komen: als het model geen profiel-URL had gevonden, vulde de extractie het veld soms met een andere URL (een TikTok-video in het Instagram-veld, de eigen website of een vestigingspagina in het Facebook-veld) omdat alleen het domein werd gecontroleerd. De validatie accepteert voortaan alleen profiel-URL's (Instagram `/<naam>`, TikTok `/@<naam>`, Facebook-pagina's, geen berichten, video's of `profile.php`), een verkeerde URL wordt weggelaten en de rest blijft behouden. De extractieprompt zegt nu expliciet dat een platform zonder profiel-URL moet worden weggelaten en dat er geen lege records mogen komen. Gezien in de runs van 15 t/m 19 okt (o.a. Almira, STOUT! Jeans en De Hypotheekshop Epe afgewezen; Leisure World Padel nam een niet-profiel-URL mee).
+
 ## [0.2.0] — 2026-10-05
 
 Eerste versie die daadwerkelijk op de server draait (Fase H): `https://tool.nicenext.nl` op Plesk (s1.gblict.nl) met Apache/Passenger, Node 21.7.3, inloggen via Entra, een werkende Postmark-webhook (alle zes events geverifieerd) en een jobrunner die elke 10 minuten via een Plesk-taak wordt aangeroepen. De uitrol legde een reeks serverspecifieke valkuilen bloot; die staan in `docs/deployment/plesk-deployment.md` (§2, §3, §7).
