@@ -222,6 +222,8 @@ describe('runs starten en bekijken', () => {
           cacheWriteTokens: 300,
           researchStopReason: 'end_turn',
           notes: 'Geen nieuwe bedrijven in Zwolle',
+          focus: 'bouw',
+          ring: ['Elburg', 'Harderwijk'],
         },
       },
     });
@@ -242,6 +244,8 @@ describe('runs starten en bekijken', () => {
       cacheWriteTokens: 300,
       researchStopReason: 'end_turn',
       notes: 'Geen nieuwe bedrijven in Zwolle',
+      focus: 'bouw',
+      ring: ['Elburg', 'Harderwijk'],
     });
     expect(JSON.stringify(res.body)).not.toContain('GEHEIME ONDERZOEKSTEKST');
   });

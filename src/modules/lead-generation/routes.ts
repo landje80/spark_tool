@@ -40,6 +40,8 @@ function runDiagnostics(metadata: unknown): {
   researchOutputTokens: number | null;
   extractOutputTokens: number | null;
   extractModel: string | null;
+  focus: string | null;
+  ring: string[];
 } {
   const m = (metadata && typeof metadata === 'object' ? metadata : {}) as Record<string, unknown>;
   const rejected = Array.isArray(m.rejected) ? m.rejected : [];
@@ -71,6 +73,10 @@ function runDiagnostics(metadata: unknown): {
     researchOutputTokens: numOrNull(m.researchOutputTokens),
     extractOutputTokens: numOrNull(m.extractOutputTokens),
     extractModel: typeof m.extractModel === 'string' ? m.extractModel.slice(0, 100) : null,
+    focus: typeof m.focus === 'string' ? m.focus.slice(0, 60) : null,
+    ring: Array.isArray(m.ring)
+      ? m.ring.filter((c): c is string => typeof c === 'string').map((c) => c.slice(0, 40))
+      : [],
   };
 }
 

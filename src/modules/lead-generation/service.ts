@@ -103,16 +103,24 @@ export async function pickRing(db: PrismaClient): Promise<readonly string[]> {
   return best!.ring;
 }
 
-/** Kiest de kernbranche die in het CRM het minst voorkomt (bij gelijkspel de eerste in de lijst). */
-export async function pickFocus(db: PrismaClient): Promise<string> {
+/**
+ * Kiest de kernbranche die in het CRM het minst voorkomt (bij gelijkspel de eerste in de lijst), maar nooit een
+ * branche waarop een van de laatste runs zich al richtte (`recent`). Zonder die uitsluiting blijft een branche met
+ * weinig aanbod (bv. bouw: veel micro-bedrijven) steeds de minst vertegenwoordigde en dus steeds de gekozen
+ * branche, terwijl de run ervoor al weinig opleverde.
+ */
+export async function pickFocus(db: PrismaClient, recent: readonly string[] = []): Promise<string> {
   const rows = await db.prospect.groupBy({
     by: ['industry'],
     where: { anonymizedAt: null },
     _count: { _all: true },
   });
   const counts = new Map(rows.map((r) => [r.industry?.toLowerCase() ?? '', r._count._all]));
+  const skip = new Set(recent);
+  // Blijven er geen branches over (meer recente runs dan branches), dan telt alleen de minste aanwezigheid.
+  const candidates = FOCUS_INDUSTRIES.filter((i) => !skip.has(i));
   let best: { industry: string; n: number } | null = null;
-  for (const industry of FOCUS_INDUSTRIES) {
+  for (const industry of candidates.length ? candidates : FOCUS_INDUSTRIES) {
     const n = counts.get(industry) ?? 0;
     if (!best || n < best.n) best = { industry, n };
   }
@@ -331,7 +339,12 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
     // ── Fase 1: onderzoek met web search (hergebruik bewaard onderzoek na een eerdere mislukte poging) ──
     const savedMeta = (run.metadata ?? null) as {
       research?: { text: string; seenUrls: string[] };
+      focus?: string;
+      ring?: string[];
     } | null;
+    // Waar deze run zich op richtte; bewaard in de runmetadata zodat de volgende run een andere branche kiest.
+    let runFocus: string | null = savedMeta?.focus ?? null;
+    let runRing: string[] | null = savedMeta?.ring ?? null;
     let research: ResearchResult;
     if (savedMeta?.research?.text) {
       research = {
@@ -351,18 +364,24 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
         known.map((k) => k.domain).filter((d): d is string => !!d),
       );
       const ring = await pickRing(db);
-      const focus = await pickFocus(db);
-      // Notities van de laatste runs (ook van eerder vandaag) als compacte hint: wat is al afgevallen, wat is nog
-      // niet afgerond, wat het model zelf als vervolg aanbeval.
+      // De laatste runs (ook van eerder vandaag): hun notities zijn een compacte hint (wat is al afgevallen, wat
+      // is nog niet afgerond, wat het model zelf als vervolg aanbeval) en hun branche telt niet opnieuw mee.
       const previous = await db.leadGenerationRun.findMany({
         where: { id: { not: run.id }, status: { in: ['SUCCEEDED', 'PARTIAL'] } },
         orderBy: { startedAt: 'desc' },
         take: 3,
         select: { metadata: true },
       });
-      const previousNotes = prepareRunNotes(
-        previous.map((r) => (r.metadata as { notes?: unknown } | null)?.notes),
+      const previousMeta = previous.map(
+        (r) => (r.metadata ?? null) as { notes?: unknown; focus?: unknown } | null,
       );
+      const focus = await pickFocus(
+        db,
+        previousMeta.map((m) => m?.focus).filter((f): f is string => typeof f === 'string'),
+      );
+      runFocus = focus;
+      runRing = [...ring];
+      const previousNotes = prepareRunNotes(previousMeta.map((m) => m?.notes));
       research = await guarded(() =>
         client.research({
           model: config.model,
@@ -400,6 +419,8 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
               seenUrls: research.seenUrls.slice(0, 1000),
               savedAt: now.toISOString(),
             },
+            focus: runFocus,
+            ring: runRing,
           },
         },
       });
@@ -527,6 +548,8 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
           rejected,
           notes: parsed.data.notes.slice(0, 2000),
           seenUrlCount: research.seenUrls.length,
+          focus: runFocus,
+          ring: runRing,
           webFetchRequests: usage.webFetchRequests,
           researchCostUsd,
           extractCostUsd,

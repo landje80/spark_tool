@@ -55,6 +55,8 @@ interface Run {
   researchOutputTokens?: number | null;
   extractOutputTokens?: number | null;
   extractModel?: string | null;
+  focus?: string | null;
+  ring?: string[];
 }
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -277,6 +279,11 @@ export function SettingsPage() {
                         extractOut: (r.extractOutputTokens ?? 0).toLocaleString('nl-NL'),
                       })}
                       {r.extractModel ? ` (${r.extractModel})` : ''}
+                    </div>
+                  )}
+                  {r.focus && (
+                    <div className="muted small">
+                      {fmt(t.runFocus, { focus: r.focus, ring: (r.ring ?? []).join(', ') })}
                     </div>
                   )}
                   <div className="muted small">

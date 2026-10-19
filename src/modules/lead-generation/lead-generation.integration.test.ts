@@ -225,6 +225,31 @@ describe('dagelijkse leadgeneratie', () => {
     expect(client1.researchCalls[0]?.user).toContain('branche: installatietechniek');
   });
 
+  it('kiest niet steeds dezelfde branche: branches van de laatste runs worden overgeslagen en bewaard', async () => {
+    const focusOf = (c: MockLeadClient) =>
+      /branche: ([^.\n]+)\./.exec(c.researchCalls[0]!.user)?.[1];
+    const focuses: (string | undefined)[] = [];
+    for (let i = 0; i < 4; i++) {
+      const client = new MockLeadClient([]);
+      await runLeadGeneration(
+        { ...deps(client), now: () => new Date(NOW.getTime() + i * 60_000) },
+        { trigger: 'manual' },
+      );
+      focuses.push(focusOf(client));
+    }
+    // Leeg CRM: zonder uitsluiting zou steeds 'bouw' winnen. Nu volgt elke run de volgende branche, en pas na
+    // drie runs mag een eerder gebruikte weer.
+    expect(focuses).toEqual([
+      'bouw',
+      'installatietechniek',
+      'zakelijke dienstverlening',
+      'automotive',
+    ]);
+
+    const run = await db.leadGenerationRun.findFirstOrThrow({ orderBy: { startedAt: 'asc' } });
+    expect(run.metadata).toMatchObject({ focus: 'bouw', ring: expect.arrayContaining(['Zwolle']) });
+  });
+
   it('zet een verder goede lead zonder socialmediaprofiel in de reviewqueue met de reden, en laat die goedkeuren', async () => {
     const zonderSocial = candidate({
       name: 'Café De Zwaan',

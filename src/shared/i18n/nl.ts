@@ -398,6 +398,7 @@ export const nl = {
     runs: 'Recente runs',
     noRuns: 'Nog geen runs.',
     runSummary: '{acc} toegevoegd, {dup} dubbel, {rev} ter beoordeling',
+    runFocus: 'Branche: {focus} · Gebied: {ring}',
     runCandidates: 'Door het model voorgesteld: {n}',
     runRejected: 'Afgewezen bij controle',
     runNotes: 'Notitie van het model',
