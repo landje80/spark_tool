@@ -61,6 +61,9 @@ const GENERIC_LOCAL = new Set([
 const DISPARAGING =
   /\b(lelijk|slecht|waardeloos|amateuristisch|beroerd|troep|rommelig|onprofessioneel|stom|belabberd|armoedig|knullig)\b/i;
 
+/** Reden (ook zichtbaar in de reviewqueue) voor een kandidaat waarvoor geen geldig socialmediaprofiel is gevonden. */
+export const NO_SOCIAL_REASON = 'geen socialmedia gevonden';
+
 /**
  * Is dit de URL van een profiel/pagina en niet van een bericht, video of een andere pagina? Het model vult een
  * socialmediaveld soms met een bron-URL (een TikTok-video, de eigen website, een vestigingspagina) als het geen
@@ -205,7 +208,9 @@ export function validateCandidate(c: Candidate, seenUrls: readonly string[]): Va
       ];
     })
     .slice(0, 8);
-  if (socials.length === 0) return reject('geen geldig socialmediaprofiel');
+  // Geen (geldig) socialmediaprofiel gevonden is geen reden om een verder goede lead te verliezen: de service
+  // zet zo'n kandidaat in de reviewqueue, waar een medewerker beslist (zie NO_SOCIAL_REASON).
+  if (socials.length === 0) review.push(NO_SOCIAL_REASON);
 
   // Alleen bronnen die echt in de zoek- of ophaalresultaten voorkwamen tellen mee (anti-hallucinatie).
   const seen = new Set(seenUrls.map(canonicalUrl).filter((u): u is string => !!u));
@@ -222,7 +227,7 @@ export function validateCandidate(c: Candidate, seenUrls: readonly string[]): Va
     );
   }
   if (!seenHosts.has(domain)) review.push('bedrijfswebsite niet in zoekresultaten gecontroleerd');
-  if (!socials.some((s) => seen.has(canonicalUrl(s.url) ?? ''))) {
+  if (socials.length > 0 && !socials.some((s) => seen.has(canonicalUrl(s.url) ?? ''))) {
     review.push('sociale profielen niet in zoekresultaten gecontroleerd');
   }
   const empCanon = c.employeesSourceUrl ? canonicalUrl(c.employeesSourceUrl) : null;

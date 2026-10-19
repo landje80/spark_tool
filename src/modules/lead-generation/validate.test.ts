@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { estimateCostUsd, supportsDynamicFiltering } from '../../integrations/anthropic/cost.js';
 import { emptyUsage } from '../../integrations/anthropic/types.js';
 import { CandidateSchema, ExtractionSchema, type Candidate } from './schema.js';
-import { canonicalUrl, isProfilePath, validateCandidate } from './validate.js';
+import { NO_SOCIAL_REASON, canonicalUrl, isProfilePath, validateCandidate } from './validate.js';
 
 const SEEN = [
   'https://www.cafedezwaan.nl/over-ons',
@@ -114,7 +114,7 @@ describe('validateCandidate', () => {
     expect(r.candidate.reviewReasons).toContain('medewerkersaantal onbekend');
   });
 
-  it('eist een geldig socialmediaprofiel en filtert URL van het verkeerde platform', () => {
+  it('filtert een URL van het verkeerde platform en markeert een kandidaat zonder geldig profiel voor beoordeling', () => {
     const wrong = base({
       socials: [
         {
@@ -125,11 +125,16 @@ describe('validateCandidate', () => {
         },
       ],
     });
-    expect(validateCandidate(wrong, SEEN)).toEqual({
-      ok: false,
-      reason: 'geen geldig socialmediaprofiel',
-    });
-    expect(validateCandidate(base({ socials: [] }), SEEN)).toMatchObject({ ok: false });
+    for (const c of [wrong, base({ socials: [] })]) {
+      const r = validateCandidate(c, SEEN);
+      if (!r.ok) throw new Error(`verwacht ok met markering: ${r.reason}`);
+      expect(r.candidate.socials).toEqual([]);
+      expect(r.candidate.reviewReasons).toContain(NO_SOCIAL_REASON);
+    }
+    // Met een geldig profiel geen markering.
+    const good = validateCandidate(base(), SEEN);
+    if (!good.ok) throw new Error('verwacht ok');
+    expect(good.candidate.reviewReasons).not.toContain(NO_SOCIAL_REASON);
   });
 
   it('bewaart alleen een zakelijk e-mailadres op het eigen domein', () => {
@@ -185,7 +190,11 @@ describe('validateCandidate', () => {
       }),
       SEEN,
     );
-    expect(onlyPersonal).toMatchObject({ ok: false });
+    // Een persoonlijk profiel wordt nooit opgeslagen (persoonsgegeven): de kandidaat gaat zonder profiel naar
+    // beoordeling in plaats van met dat profiel in het CRM.
+    if (!onlyPersonal.ok) throw new Error('verwacht ok met markering');
+    expect(onlyPersonal.candidate.socials).toEqual([]);
+    expect(onlyPersonal.candidate.reviewReasons).toContain(NO_SOCIAL_REASON);
   });
 
   it('markeert socials en medewerkersbron die niet in de zoekresultaten stonden voor beoordeling', () => {
@@ -331,7 +340,7 @@ describe('isProfilePath en socials in validateCandidate', () => {
     ).toEqual(['LINKEDIN', 'FACEBOOK']);
   });
 
-  it('wijst een kandidaat af als alleen verkeerde URL’s als profiel zijn opgegeven', () => {
+  it('markeert een kandidaat voor beoordeling als alleen verkeerde URL’s als profiel zijn opgegeven', () => {
     const r = validateCandidate(
       base({
         socials: [
@@ -341,6 +350,8 @@ describe('isProfilePath en socials in validateCandidate', () => {
       }),
       SEEN,
     );
-    expect(r).toEqual({ ok: false, reason: 'geen geldig socialmediaprofiel' });
+    if (!r.ok) throw new Error(`verwacht ok met markering: ${r.reason}`);
+    expect(r.candidate.socials).toEqual([]);
+    expect(r.candidate.reviewReasons).toContain(NO_SOCIAL_REASON);
   });
 });

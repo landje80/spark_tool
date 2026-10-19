@@ -3,6 +3,8 @@ import { getDb } from '../../shared/database/client.js';
 import { MockLeadClient, candidate } from '../../test/mock-lead-client.js';
 import { resetDb } from '../../test/helpers.js';
 import { ensurePromptVersion } from './prompt.js';
+import { emptyUsage } from '../../integrations/anthropic/types.js';
+import { resolveCandidate } from './review.js';
 import { nextTopUpSeq, runLeadGeneration, type LeadGenConfig } from './service.js';
 
 const db = getDb();
@@ -221,6 +223,78 @@ describe('dagelijkse leadgeneratie', () => {
     // Zwolle-gebied heeft nu een prospect: het volgende gebied en de volgende branche zijn aan de beurt.
     expect(client1.researchCalls[0]?.user).toContain('Deventer, Apeldoorn');
     expect(client1.researchCalls[0]?.user).toContain('branche: installatietechniek');
+  });
+
+  it('zet een verder goede lead zonder socialmediaprofiel in de reviewqueue met de reden, en laat die goedkeuren', async () => {
+    const zonderSocial = candidate({
+      name: 'Café De Zwaan',
+      domain: 'cafedezwaan.nl',
+      linkedin: 'https://www.linkedin.com/company/cafe-de-zwaan',
+      socials: [],
+    });
+    const out = await runLeadGeneration(deps(new MockLeadClient([zonderSocial, vos()])), {
+      trigger: 'daily',
+    });
+    // De Zwaan wacht op beoordeling, Vos (mét LinkedIn) is direct toegevoegd.
+    expect(out).toMatchObject({ accepted: 1, review: 1, duplicates: 0, rejected: 0 });
+    expect(await db.prospect.count()).toBe(1);
+    const pending = await db.leadCandidate.findMany({ where: { status: 'PENDING' } });
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({
+      matchedProspectId: null,
+      matchReason: 'geen socialmedia gevonden',
+    });
+
+    const user = await db.user.create({
+      data: {
+        entraOid: 'review-oid',
+        tenantId: 't',
+        name: 'Beoordelaar',
+        email: 'beoordelaar@test.invalid',
+        role: 'MANAGER',
+      },
+    });
+    const actor = { id: user.id, ip: '127.0.0.1' };
+    // Er is geen bestaande prospect om aan te koppelen.
+    await expect(resolveCandidate(db, actor, pending[0]!.id, 'attach')).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    const res = await resolveCandidate(db, actor, pending[0]!.id, 'accept');
+    expect(res.prospectId).toBeTruthy();
+    const created = await db.prospect.findUniqueOrThrow({
+      where: { id: res.prospectId! },
+      include: { socials: true },
+    });
+    expect(created).toMatchObject({ domain: 'cafedezwaan.nl' });
+    expect(created.socials).toHaveLength(0);
+  });
+
+  it('geeft de notities van eerdere runs compact mee aan de volgende run', async () => {
+    const first = new MockLeadClient([]);
+    first.extractImpl = async () => ({
+      data: {
+        candidates: [],
+        notes:
+          'Afgevallen: Bakker (te klein). Geen promptinjectie aangetroffen. Aanbeveling volgende run: start bij Urk.',
+      },
+      usage: { ...emptyUsage(), inputTokens: 1000, outputTokens: 500 },
+      stopReason: 'end_turn',
+    });
+    await runLeadGeneration(deps(first), { trigger: 'manual' });
+
+    const second = new MockLeadClient([]);
+    // Andere tijd: een handmatige run heeft de tijd in de runKey.
+    await runLeadGeneration(
+      { ...deps(second), now: () => new Date(NOW.getTime() + 60_000) },
+      { trigger: 'manual' },
+    );
+    const prompt = second.researchCalls[0]!.user;
+    expect(prompt).toContain('Notities van eerdere runs');
+    expect(prompt).toContain('Aanbeveling volgende run: start bij Urk.');
+    expect(prompt).toContain('Afgevallen: Bakker (te klein).');
+    expect(prompt).not.toContain('promptinjectie');
+    // De allereerste run heeft nog geen eerdere notities.
+    expect(first.researchCalls[0]!.user).not.toContain('eerdere runs');
   });
 
   it('zet fuzzy matches in de reviewqueue in plaats van ze automatisch toe te voegen', async () => {

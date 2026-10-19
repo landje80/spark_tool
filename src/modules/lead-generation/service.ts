@@ -22,11 +22,12 @@ import {
   EXTRACT_SYSTEM_PROMPT,
   RESEARCH_SYSTEM_PROMPT,
   FOCUS_INDUSTRIES,
+  prepareRunNotes,
   SEARCH_RINGS,
   splitKnownDomains,
 } from './prompt.js';
 import { ExtractionSchema } from './schema.js';
-import { validateCandidate } from './validate.js';
+import { NO_SOCIAL_REASON, validateCandidate } from './validate.js';
 
 export interface LeadGenConfig {
   model: string;
@@ -351,6 +352,17 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
       );
       const ring = await pickRing(db);
       const focus = await pickFocus(db);
+      // Notities van de laatste runs (ook van eerder vandaag) als compacte hint: wat is al afgevallen, wat is nog
+      // niet afgerond, wat het model zelf als vervolg aanbeval.
+      const previous = await db.leadGenerationRun.findMany({
+        where: { id: { not: run.id }, status: { in: ['SUCCEEDED', 'PARTIAL'] } },
+        orderBy: { startedAt: 'desc' },
+        take: 3,
+        select: { metadata: true },
+      });
+      const previousNotes = prepareRunNotes(
+        previous.map((r) => (r.metadata as { notes?: unknown } | null)?.notes),
+      );
       research = await guarded(() =>
         client.research({
           model: config.model,
@@ -362,6 +374,7 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
             blockedCount: blocked.length,
             knownDomains: overflow,
             knownNames: known.slice(0, 400).map((k) => k.companyName),
+            previousNotes,
             maxSearches: config.maxSearches,
             now,
           }),
@@ -458,6 +471,18 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
                 socialUrls: clean.socials.map((s) => s.url),
               });
               if (matches.some((m) => m.kind === 'exact')) return 'duplicate' as const;
+              if (matches.length === 0 && clean.reviewReasons.includes(NO_SOCIAL_REASON)) {
+                // Verder goede lead zonder gevonden socialmediaprofiel: een medewerker beslist.
+                await tx.leadCandidate.create({
+                  data: {
+                    runId: run.id,
+                    payload: clean as unknown as object,
+                    matchedProspectId: null,
+                    matchReason: NO_SOCIAL_REASON,
+                  },
+                });
+                return 'review' as const;
+              }
               if (matches.length > 0) {
                 await tx.leadCandidate.create({
                   data: {
