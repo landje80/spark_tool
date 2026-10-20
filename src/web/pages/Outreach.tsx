@@ -21,6 +21,11 @@ export interface EmailRow {
   openedAt: string | null;
   bounceType: string | null;
   toEmail: string;
+  fromEmail: string;
+  /** De verzonden tekst (of, bij oudere mails, de tekst van het concept); null als er niets is bewaard. */
+  body: string | null;
+  /** false = tekst van het concept, zonder voettekst en afmeldlink. */
+  bodyIsExact: boolean;
 }
 
 interface DraftFull {
@@ -328,15 +333,24 @@ export function OutreachSection({
 
   const open = drafts.filter((d) => d.status === 'DRAFT');
 
-  async function create() {
+  // Een opvolgmail kan pas als er al een mail is verzonden (afgeleverd of in ieder geval onderweg).
+  const hasSent = emails.some((m) => m.status === 'SENT' || m.status === 'DELIVERED');
+
+  async function create(kind: 'first' | 'follow_up' = 'first') {
     setBusy(true);
     setError('');
     try {
-      const d = await send<{ id: string }>('POST', `/prospects/${prospectId}/drafts`);
+      const d = await send<{ id: string }>('POST', `/prospects/${prospectId}/drafts`, { kind });
       onChange();
       setEditing(d.id);
-    } catch {
-      setError(nl.common.error);
+    } catch (err) {
+      setError(
+        err instanceof ApiError &&
+          (err.details as { reason?: string } | undefined)?.reason &&
+          (err.details as { reason: string }).reason in t.reason
+          ? t.reason[(err.details as { reason: string }).reason as keyof typeof t.reason]
+          : nl.common.error,
+      );
     } finally {
       setBusy(false);
     }
@@ -440,9 +454,26 @@ export function OutreachSection({
             </ul>
           )}
           {canPrepare && (
-            <button className="btn" disabled={busy} onClick={() => void create()}>
-              {busy ? t.creating : t.newDraft}
-            </button>
+            <p className="actions">
+              <button className="btn" disabled={busy} onClick={() => void create('first')}>
+                {busy ? t.creating : t.newDraft}
+              </button>
+              {hasSent && (
+                <>
+                  <button
+                    className="btn btn--ghost"
+                    disabled={busy}
+                    aria-describedby="followup-help"
+                    onClick={() => void create('follow_up')}
+                  >
+                    {t.newFollowUp}
+                  </button>
+                  <span className="muted small" id="followup-help">
+                    {t.followUpHelp}
+                  </span>
+                </>
+              )}
+            </p>
           )}
         </>
       )}
@@ -464,6 +495,33 @@ export function OutreachSection({
                 {m.openedAt ? ` · ${t.opened} ${fmtDateTime(m.openedAt)}` : ''}
                 {m.bounceType ? ` · ${m.bounceType}` : ''}
               </div>
+              {/* Een kopie van de mail zoals verzonden; een <details> werkt zonder JavaScript en met toetsenbord. */}
+              <details className="sent-mail">
+                <summary>{t.viewMail}</summary>
+                <dl className="dl dl--one">
+                  <div>
+                    <dt>{t.from}</dt>
+                    <dd>{m.fromEmail}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.to}</dt>
+                    <dd>{m.toEmail}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.subject}</dt>
+                    <dd>{m.subject}</dd>
+                  </div>
+                </dl>
+                {m.body === null ? (
+                  <p className="muted">{t.mailNoBody}</p>
+                ) : (
+                  <>
+                    {!m.bodyIsExact && <p className="hint">{t.mailInexact}</p>}
+                    {/* Platte tekst (geen HTML): React escapet alles; regeleinden blijven via CSS behouden. */}
+                    <div className="mailbox pre">{m.body}</div>
+                  </>
+                )}
+              </details>
             </li>
           ))}
         </ul>

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Een kopie van elke verzonden outreach-mail op de prospectkaart onder "Verzonden e-mails" ("Bekijk de verzonden mail": van, aan, onderwerp en de volledige tekst). Eerder bewaarde `EmailMessage` alleen de onderwerpregel. De exacte tekst (inclusief voettekst en afmeldlink) wordt nu bij het verzenden vastgelegd in de nieuwe kolom `EmailMessage.textBody` (migratie `20261020120000_email_text_body`, vóór het verzenden, dus ook als de registratie erna mislukt). Mails van vóór deze kolom tonen de tekst van het bijbehorende concept met de melding dat de voettekst en afmeldlink ontbreken.
+- Een opvolgmail opstellen ("Opvolgmail opstellen" bij Outreach en e-mail): een concept dat voortbouwt op de eerder verzonden mail(s) aan de prospect (de laatste drie als context, elk maximaal 1500 tekens), met een eigen prompt (korte, beleefde opvolging, geen verwijt, geen "Re:" in het onderwerp, geen verzonnen reactie) en een sjabloon als terugval. De knop verschijnt pas als er een mail is verzonden. De opvolging doorloopt dezelfde stappen als elke mail (voorbeeld, expliciete bevestiging, optionele opvolgtaak) en wordt na het verzenden op dezelfde manier bewaard. Niet mogelijk als de prospect al heeft gereageerd (409 `replied`), en de status blijft "Gemaild".
+
 ### Changed
 
 - Een kandidaat waarvan het model zelf een lage betrouwbaarheid opgeeft komt niet meer als prospect met status "Te beoordelen" in het CRM, maar in de reviewqueue met de reden "lage betrouwbaarheid" (en eventueel "· geen socialmedia gevonden"), zoals ook de leads zonder gevonden socialmediaprofiel. Aanleiding: een lead als Cornelis Epe ("alleen RocketReach, ongeverifieerd") stond tussen de gewone prospects en viel alleen op als je de prospect opende. Andere markeringen (bijvoorbeeld een onbekend medewerkersaantal bij een verder betrouwbare kandidaat) maken nog steeds een prospect met status "Te beoordelen".

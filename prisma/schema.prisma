@@ -469,6 +469,9 @@ model EmailMessage {
   fromEmail         String      @db.VarChar(320)
   toEmail           String      @db.VarChar(320)
   subject           String      @db.VarChar(300)
+  /// De tekst zoals die daadwerkelijk is verzonden (inclusief voettekst en afmeldlink). Leeg bij mails van vóór
+  /// deze kolom; de prospectkaart valt dan terug op de tekst van het bijbehorende concept.
+  textBody          String?     @db.MediumText
   status            EmailStatus @default(QUEUED)
   sentAt            DateTime?
   deliveredAt       DateTime?

@@ -28,6 +28,9 @@ import { addSuppression } from './suppression.js';
 const idParam = z.string().min(1).max(40);
 const noBreaks = (s: string) => !hasLineBreaks(s);
 
+const createDraftSchema = z
+  .object({ kind: z.enum(['first', 'follow_up']).default('first') })
+  .strict();
 const draftUpdateSchema = z
   .object({
     subject: z.string().trim().min(1).max(200).refine(noBreaks, 'Bevat ongeldige regeleinden'),
@@ -64,7 +67,8 @@ export function outreachRouter(deps: OutreachDeps): Router {
   });
 
   r.post('/prospects/:id/drafts', prepare, async (req, res) => {
-    const draft = await createDraft(deps, actorOf(req), parseInput(idParam, req.params.id));
+    const { kind } = parseInput(createDraftSchema, req.body ?? {});
+    const draft = await createDraft(deps, actorOf(req), parseInput(idParam, req.params.id), kind);
     res.status(201).json(draft);
   });
 

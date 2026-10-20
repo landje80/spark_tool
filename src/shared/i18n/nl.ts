@@ -260,7 +260,14 @@ export const nl = {
     contact: 'Zakelijk e-mailadres',
     noContact: 'Geen e-mailadres bekend. Vul er een in bij het verzenden.',
     newDraft: 'Conceptmail maken',
+    newFollowUp: 'Opvolgmail opstellen',
+    followUpHelp:
+      'Maakt een concept voor een opvolging op de eerder verzonden mail(s). Je beoordeelt en verstuurt het zoals elke andere mail.',
     creating: 'Concept maken…',
+    viewMail: 'Bekijk de verzonden mail',
+    mailInexact:
+      'Deze mail is verzonden vóór de volledige tekst werd bewaard. Hieronder staat de tekst van het concept, zonder de voettekst en de afmeldlink.',
+    mailNoBody: 'Van deze mail is geen tekst bewaard.',
     drafts: 'Concepten',
     noDrafts: 'Nog geen concepten.',
     sent: 'Verzonden e-mails',
@@ -300,6 +307,9 @@ export const nl = {
       daily_limit: 'Het dagelijkse verzendlimiet is bereikt.',
       confirm_invalid: 'De bevestiging is verlopen. Bekijk het voorbeeld opnieuw.',
       content_changed: 'Het concept is gewijzigd na het voorbeeld. Bekijk het opnieuw.',
+      no_previous_email: 'Er is nog geen mail verzonden. Maak eerst een gewone conceptmail.',
+      replied:
+        'Deze prospect heeft al gereageerd. Beantwoord die reactie persoonlijk in plaats van een opvolging te sturen.',
     },
     warn: {
       no_contact_email: 'Bij deze prospect is geen e-mailadres vastgelegd.',

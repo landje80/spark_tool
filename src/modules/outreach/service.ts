@@ -12,7 +12,7 @@ import { assertHeaderSafe, cleanText, paragraphsOf, renderHtml, renderText } fro
 import { getOutreachSettings } from './settings.js';
 import { addSuppression, isSuppressed, normalizeEmail } from './suppression.js';
 import { contentHashOf, signConfirm, unsubscribeToken, verifyConfirm } from './tokens.js';
-import type { DraftWriter } from './writer.js';
+import type { DraftWriter, PreviousMail } from './writer.js';
 
 export interface OutreachDeps {
   db: PrismaClient;
@@ -58,12 +58,43 @@ async function loadDraft(db: PrismaClient, id: string) {
   return draft;
 }
 
-export async function createDraft(deps: OutreachDeps, actor: Actor, prospectId: string) {
+/** 'first' = kennismakingsmail; 'follow_up' = opvolging op eerder verzonden mail(s) aan deze prospect. */
+export type DraftKind = 'first' | 'follow_up';
+
+export async function createDraft(
+  deps: OutreachDeps,
+  actor: Actor,
+  prospectId: string,
+  kind: DraftKind = 'first',
+) {
   const { db, writer, env } = deps;
   const prospect = await db.prospect.findUnique({ where: { id: prospectId } });
   if (!prospect || prospect.anonymizedAt) throw new AppError('NOT_FOUND', 'Prospect niet gevonden');
   if (CLOSED_STATUSES.includes(prospect.status)) {
     throw new AppError('CONFLICT', 'Deze prospect wordt niet meer benaderd');
+  }
+  let previous: PreviousMail[] | undefined;
+  if (kind === 'follow_up') {
+    if (prospect.status === 'REPLY_RECEIVED') {
+      throw new AppError('CONFLICT', 'Deze prospect heeft al gereageerd', { reason: 'replied' });
+    }
+    const sent = await db.emailMessage.findMany({
+      where: { prospectId, status: { in: ['SENT', 'DELIVERED'] } },
+      orderBy: [{ sentAt: 'desc' }, { createdAt: 'desc' }],
+      take: 3,
+      include: { draft: { select: { textBody: true } } },
+    });
+    if (sent.length === 0) {
+      throw new AppError('CONFLICT', 'Er is nog geen mail verzonden', {
+        reason: 'no_previous_email',
+      });
+    }
+    // De tekst van het concept (zonder voettekst en afmeldlink) is de beste context voor het model.
+    previous = sent.map((m) => ({
+      subject: m.subject,
+      text: m.draft?.textBody ?? m.textBody ?? '',
+      sentAt: m.sentAt,
+    }));
   }
   const out = await writer.write({
     companyName: prospect.companyName,
@@ -71,6 +102,7 @@ export async function createDraft(deps: OutreachDeps, actor: Actor, prospectId: 
     industry: prospect.industry,
     outreachAngle: prospect.outreachAngle,
     senderName: env.POSTMARK_FROM_NAME,
+    previous,
   });
   const subject =
     cleanText(out.subject).replace(/\s+/g, ' ').slice(0, 200) || 'Kennismaking met Spark';
@@ -112,7 +144,7 @@ export async function createDraft(deps: OutreachDeps, actor: Actor, prospectId: 
       entityType: 'OutreachDraft',
       entityId: draft.id,
       ip: actor.ip,
-      metadata: { writer: writer.name },
+      metadata: { writer: writer.name, kind },
     });
     return draft;
   });
@@ -335,6 +367,11 @@ export async function sendDraft(
     ? `reply+${msg.id}@${env.POSTMARK_INBOUND_DOMAIN}`
     : undefined;
 
+  // De exacte tekst bewaren die naar de ontvanger gaat (inclusief voettekst en afmeldlink), vóór het verzenden:
+  // zo staat er ook een kopie als de registratie na de verzending mislukt, en kan de prospectkaart haar tonen.
+  const textBody = renderText(paragraphs, footer);
+  await db.emailMessage.update({ where: { id: msg.id }, data: { textBody } });
+
   let sent;
   try {
     sent = await mail.send({
@@ -342,7 +379,7 @@ export async function sendDraft(
       fromName: env.POSTMARK_FROM_NAME,
       to,
       subject: draft.subject,
-      textBody: renderText(paragraphs, footer),
+      textBody,
       htmlBody: renderHtml(paragraphs, footer),
       replyTo,
       messageStream: env.POSTMARK_MESSAGE_STREAM,

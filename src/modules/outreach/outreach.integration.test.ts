@@ -496,3 +496,126 @@ describe('instellingen', () => {
     ).toBe(400);
   });
 });
+
+describe('kopie van verzonden mails op de prospectkaart', () => {
+  async function sendFirst(prospectId: string) {
+    const { draftId, prep } = await draftAndPrepare(sales, prospectId);
+    const res = await sales.post(`/outreach/drafts/${draftId}/send`, {
+      to: prep.body.to,
+      confirmToken: prep.body.confirmToken,
+    });
+    expect(res.status).toBe(201);
+    return draftId;
+  }
+
+  it('bewaart de exacte verzonden tekst (met voettekst en afmeldlink) en toont die op de prospectkaart', async () => {
+    const p = await newProspect();
+    await sendFirst(p.id);
+    const msg = await db.emailMessage.findFirstOrThrow();
+    expect(msg.textBody).toBe(mail.sent[0]!.textBody);
+    expect(msg.textBody).toContain('Meld u hier af: http://localhost:3000/tool/unsubscribe/');
+
+    const detail = await sales.get(`/prospects/${p.id}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.emails).toHaveLength(1);
+    expect(detail.body.emails[0]).toMatchObject({
+      subject: msg.subject,
+      fromEmail: 'spark@nicenext.test',
+      toEmail: 'info@cafedezwaan.nl',
+      body: msg.textBody,
+      bodyIsExact: true,
+    });
+    // De ruwe databasekolom lekt niet apart naar de API: alleen `body`.
+    expect(detail.body.emails[0]).not.toHaveProperty('textBody');
+  });
+
+  it('valt voor mails van vóór het bewaren van de tekst terug op het concept en zegt dat', async () => {
+    const p = await newProspect();
+    const draftId = await sendFirst(p.id);
+    await db.emailMessage.updateMany({ data: { textBody: null } });
+    const draft = await db.outreachDraft.findUniqueOrThrow({ where: { id: draftId } });
+
+    const detail = await sales.get(`/prospects/${p.id}`);
+    expect(detail.body.emails[0]).toMatchObject({ body: draft.textBody, bodyIsExact: false });
+    expect(detail.body.emails[0].body).not.toContain('Meld u hier af');
+  });
+});
+
+describe('opvolgmail', () => {
+  async function sendDraftOf(prospectId: string, body: object = {}) {
+    const d = await sales.post(`/prospects/${prospectId}/drafts`, body);
+    expect(d.status).toBe(201);
+    const prep = await sales.post(`/outreach/drafts/${d.body.id}/prepare-send`, {});
+    expect(prep.status).toBe(200);
+    const sent = await sales.post(`/outreach/drafts/${d.body.id}/send`, {
+      to: prep.body.to,
+      confirmToken: prep.body.confirmToken,
+    });
+    expect(sent.status).toBe(201);
+    return { draft: d.body, prep: prep.body };
+  }
+
+  it('kan pas nadat er een mail is verzonden', async () => {
+    const p = await newProspect();
+    const res = await sales.post(`/prospects/${p.id}/drafts`, { kind: 'follow_up' });
+    expect(res.status).toBe(409);
+    expect(res.body.details).toEqual({ reason: 'no_previous_email' });
+    expect(await db.outreachDraft.count()).toBe(0);
+  });
+
+  it('maakt een opvolgconcept, houdt de status op "Gemaild" en bewaart de verzonden opvolging ook', async () => {
+    const p = await newProspect();
+    const first = await sendDraftOf(p.id);
+
+    const follow = await sales.post(`/prospects/${p.id}/drafts`, { kind: 'follow_up' });
+    expect(follow.status).toBe(201);
+    expect(follow.body.status).toBe('DRAFT');
+    expect(follow.body.subject).toBe(`Opvolging: ${first.draft.subject}`);
+    expect(follow.body.textBody).toContain('Onlangs stuurde ik u een bericht');
+    expect(follow.body.id).not.toBe(first.draft.id);
+    // De prospect is al gemaild: geen terugval naar "Outreach voorbereid".
+    expect((await db.prospect.findUniqueOrThrow({ where: { id: p.id } })).status).toBe('EMAILED');
+
+    // Verzenden van de opvolging gaat zoals elke andere mail (voorbeeld, bevestiging) en waarschuwt dat er al is gemaild.
+    const prep = await sales.post(`/outreach/drafts/${follow.body.id}/prepare-send`, {});
+    expect(prep.body.warnings).toContain('already_emailed');
+    const sent = await sales.post(`/outreach/drafts/${follow.body.id}/send`, {
+      to: prep.body.to,
+      confirmToken: prep.body.confirmToken,
+    });
+    expect(sent.status).toBe(201);
+    expect(mail.sent).toHaveLength(2);
+
+    const detail = await sales.get(`/prospects/${p.id}`);
+    expect(detail.body.emails).toHaveLength(2);
+    const bodies = detail.body.emails.map((m: { body: string }) => m.body);
+    expect(bodies.every((b: string) => b.includes('Meld u hier af'))).toBe(true);
+    expect(bodies.some((b: string) => b.includes('Onlangs stuurde ik u een bericht'))).toBe(true);
+    expect(
+      await db.prospectActivity.count({ where: { prospectId: p.id, type: 'EMAIL_SENT' } }),
+    ).toBe(2);
+  });
+
+  it('weigert een opvolging als de prospect al heeft gereageerd', async () => {
+    const p = await newProspect();
+    await sendDraftOf(p.id);
+    await db.prospect.update({ where: { id: p.id }, data: { status: 'REPLY_RECEIVED' } });
+    const res = await sales.post(`/prospects/${p.id}/drafts`, { kind: 'follow_up' });
+    expect(res.status).toBe(409);
+    expect(res.body.details).toEqual({ reason: 'replied' });
+  });
+
+  it('weigert een onbekend soort concept', async () => {
+    const p = await newProspect();
+    expect((await sales.post(`/prospects/${p.id}/drafts`, { kind: 'onzin' })).status).toBe(400);
+    expect((await sales.post(`/prospects/${p.id}/drafts`, { extra: 1 })).status).toBe(400);
+  });
+
+  it('vereist outreach.prepare', async () => {
+    const p = await newProspect();
+    await sendDraftOf(p.id);
+    expect(
+      (await (await as('VIEWER')).post(`/prospects/${p.id}/drafts`, { kind: 'follow_up' })).status,
+    ).toBe(403);
+  });
+});

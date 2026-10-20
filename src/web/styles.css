@@ -935,6 +935,13 @@ html {
 .mailbox p {
   margin: 0 0 var(--space-3);
 }
+.sent-mail {
+  margin: var(--space-2) 0 var(--space-4);
+}
+.sent-mail summary {
+  cursor: pointer;
+  color: var(--c-link, var(--c-brand-strong));
+}
 .full {
   flex-basis: 100%;
   margin: 0;

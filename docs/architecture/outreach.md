@@ -6,7 +6,11 @@
 2. Medewerker **bewerkt** onderwerp en platte tekst. HTML wordt server-side uit die tekst gebouwd en volledig geëscaped; ruwe HTML van gebruiker of AI komt nooit in een mail.
 3. **Voorbeeld** (`prepare-send`): server valideert ontvanger, afzender, suppressie, prospectstatus en dagelijks limiet en toont de definitieve mail (afzender, ontvanger, onderwerp, tekst, automatische footer). Uitvoer is een `confirmToken` (HMAC, 10 min) dat **ontvanger + inhoud** bindt.
 4. Medewerker vinkt de bevestiging aan en klikt **Definitief verzenden**. Wijzigt het concept of de ontvanger daarna, dan wordt het token geweigerd.
-5. Server claimt de verzending (unieke `idempotencyKey` = concept + ontvanger + inhoud), roept Postmark aan **buiten** de databasetransactie en legt daarna in één transactie vast: `EmailMessage` (SENT + Postmark `MessageID`), concept SENT + goedkeurder, prospect → "Gemaild", activiteit `EMAIL_SENT`, optionele opvolgtaak + volgende actiedatum, auditlog.
+5. Server claimt de verzending (unieke `idempotencyKey` = concept + ontvanger + inhoud), bewaart de exacte verzonden tekst (inclusief voettekst en afmeldlink) in `EmailMessage.textBody`, roept Postmark aan **buiten** de databasetransactie en legt daarna in één transactie vast: `EmailMessage` (SENT + Postmark `MessageID`), concept SENT + goedkeurder, prospect → "Gemaild", activiteit `EMAIL_SENT`, optionele opvolgtaak + volgende actiedatum, auditlog.
+
+## Opvolgmail
+
+Zodra er een mail is verzonden (status `SENT` of `DELIVERED`) kan een medewerker een **opvolgmail** laten opstellen (`POST /prospects/:id/drafts` met `{ "kind": "follow_up" }`). De schrijver krijgt de laatste drie verzonden mails als context (de tekst van het concept, elk maximaal 1500 tekens) en gebruikt een eigen prompt: kort, beleefd, geen verwijt, geen "Re:" in het onderwerp, geen verzonnen reactie. Zonder AI valt het terug op een sjabloon. Daarna gelden dezelfde stappen als voor elke mail (voorbeeld, expliciete bevestiging, optionele opvolgtaak). Niet mogelijk als de prospect al heeft gereageerd. De prospectstatus blijft "Gemaild".
 
 ## Bescherming
 

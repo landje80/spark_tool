@@ -494,11 +494,25 @@ export async function getProspectDetail(db: PrismaClient, id: string) {
           openedAt: true,
           bounceType: true,
           toEmail: true,
+          fromEmail: true,
+          textBody: true,
+          draft: { select: { textBody: true } },
         },
       },
       customer: { select: { id: true } },
     },
   });
   if (!p || p.anonymizedAt) throw new AppError('NOT_FOUND', 'Prospect niet gevonden');
-  return { ...p, allowedTransitions: allowedTransitions(p.status).filter((s) => s !== 'CUSTOMER') };
+  // Een kopie van elke verzonden mail: de bewaarde tekst zoals verzonden; bij mails van vóór het bewaren van die
+  // tekst valt het terug op het concept (zonder voettekst en afmeldlink), met `bodyIsExact: false`.
+  const emails = p.emails.map(({ textBody, draft, ...m }) => ({
+    ...m,
+    body: textBody ?? draft?.textBody ?? null,
+    bodyIsExact: textBody !== null,
+  }));
+  return {
+    ...p,
+    emails,
+    allowedTransitions: allowedTransitions(p.status).filter((s) => s !== 'CUSTOMER'),
+  };
 }
