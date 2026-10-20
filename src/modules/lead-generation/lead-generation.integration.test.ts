@@ -346,6 +346,36 @@ describe('dagelijkse leadgeneratie', () => {
     expect(pending[0]).toMatchObject({ matchedProspectId: existing.id });
   });
 
+  it('zet een kandidaat met lage betrouwbaarheid in de reviewqueue, ook samen met geen socialmedia', async () => {
+    const laag = candidate({
+      name: 'Twijfel BV',
+      domain: 'installatievos.nl',
+      linkedin: 'https://www.linkedin.com/company/installatie-vos',
+      confidence: 'LOW',
+    });
+    const laagZonderSocial = candidate({
+      name: 'Dubbel Twijfel BV',
+      domain: 'bakkerijsmid.nl',
+      linkedin: 'https://www.linkedin.com/company/bakkerij-smid',
+      confidence: 'LOW',
+      socials: [],
+    });
+    const out = await runLeadGeneration(deps(new MockLeadClient([laag, laagZonderSocial])), {
+      trigger: 'daily',
+    });
+    expect(out).toMatchObject({ accepted: 0, review: 2, rejected: 0 });
+    expect(await db.prospect.count()).toBe(0);
+    const pending = await db.leadCandidate.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(pending.map((p) => p.matchReason).sort()).toEqual([
+      'lage betrouwbaarheid',
+      'lage betrouwbaarheid · geen socialmedia gevonden',
+    ]);
+    expect(pending.every((p) => p.matchedProspectId === null)).toBe(true);
+  });
+
   it('wijst ongeldige kandidaten af en legt de reden vast; twijfelgevallen krijgen status IN_REVIEW', async () => {
     const buitenRegio = candidate({
       name: 'Utrechts Bedrijf',
@@ -353,11 +383,13 @@ describe('dagelijkse leadgeneratie', () => {
       linkedin: 'https://www.linkedin.com/company/installatie-vos',
       province: 'OTHER',
     });
+    // Onbekend medewerkersaantal: wel een prospect, maar met een markering (status "Te beoordelen").
     const onbetrouwbaar = candidate({
       name: 'Twijfel BV',
       domain: 'installatievos.nl',
       linkedin: 'https://www.linkedin.com/company/installatie-vos',
-      confidence: 'LOW',
+      employeesMin: null,
+      employeesMax: null,
     });
     const verzonnen = candidate({
       name: 'Verzonnen BV',

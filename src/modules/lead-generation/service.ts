@@ -27,7 +27,7 @@ import {
   splitKnownDomains,
 } from './prompt.js';
 import { ExtractionSchema } from './schema.js';
-import { NO_SOCIAL_REASON, validateCandidate } from './validate.js';
+import { LOW_CONFIDENCE_REASON, NO_SOCIAL_REASON, validateCandidate } from './validate.js';
 
 export interface LeadGenConfig {
   model: string;
@@ -492,14 +492,18 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
                 socialUrls: clean.socials.map((s) => s.url),
               });
               if (matches.some((m) => m.kind === 'exact')) return 'duplicate' as const;
-              if (matches.length === 0 && clean.reviewReasons.includes(NO_SOCIAL_REASON)) {
-                // Verder goede lead zonder gevonden socialmediaprofiel: een medewerker beslist.
+              // Lage betrouwbaarheid of geen gevonden socialmediaprofiel: niet automatisch in het CRM maar in de
+              // reviewqueue, waar een medewerker beslist (met de reden(en) erbij).
+              const hold = [LOW_CONFIDENCE_REASON, NO_SOCIAL_REASON].filter((r) =>
+                clean.reviewReasons.includes(r),
+              );
+              if (matches.length === 0 && hold.length > 0) {
                 await tx.leadCandidate.create({
                   data: {
                     runId: run.id,
                     payload: clean as unknown as object,
                     matchedProspectId: null,
-                    matchReason: NO_SOCIAL_REASON,
+                    matchReason: hold.join(' · '),
                   },
                 });
                 return 'review' as const;

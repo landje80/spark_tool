@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Een kandidaat waarvan het model zelf een lage betrouwbaarheid opgeeft komt niet meer als prospect met status "Te beoordelen" in het CRM, maar in de reviewqueue met de reden "lage betrouwbaarheid" (en eventueel "· geen socialmedia gevonden"), zoals ook de leads zonder gevonden socialmediaprofiel. Aanleiding: een lead als Cornelis Epe ("alleen RocketReach, ongeverifieerd") stond tussen de gewone prospects en viel alleen op als je de prospect opende. Andere markeringen (bijvoorbeeld een onbekend medewerkersaantal bij een verder betrouwbare kandidaat) maken nog steeds een prospect met status "Te beoordelen".
+
 ### Fixed
 
 - Een verlopen sessie in een tabblad dat lang openstond gaf alleen "Er ging iets mis. Probeer het opnieuw." op een verder gewone pagina. De pagina controleerde de inlogstatus maar één keer (bij het openen), terwijl de eigen sessie van de app na 8 uur inactiviteit (12 uur absoluut) verloopt, los van de Microsoft-sessie. Nu stuurt elke API-aanroep die een 401 krijgt naar de inlogpagina met de melding "Je sessie is verlopen", en na het inloggen kom je terug op de pagina waar je was (alleen paden binnen de app, nooit de loginpagina zelf). Bij terugkeer naar een lang openstaand tabblad wordt de sessie bovendien meteen gecontroleerd (hoogstens eens per 5 minuten), zodat je niet pas bij de eerste klik een fout ziet.

@@ -63,6 +63,8 @@ const DISPARAGING =
 
 /** Reden (ook zichtbaar in de reviewqueue) voor een kandidaat waarvoor geen geldig socialmediaprofiel is gevonden. */
 export const NO_SOCIAL_REASON = 'geen socialmedia gevonden';
+/** Reden (ook zichtbaar in de reviewqueue) voor een kandidaat waarvan het model zelf een lage betrouwbaarheid opgaf. */
+export const LOW_CONFIDENCE_REASON = 'lage betrouwbaarheid';
 
 /**
  * Is dit de URL van een profiel/pagina en niet van een bericht, video of een andere pagina? Het model vult een
@@ -248,7 +250,7 @@ export function validateCandidate(c: Candidate, seenUrls: readonly string[]): Va
       contactEmail = c.contactEmail.toLowerCase();
   }
 
-  if (c.confidence === 'LOW') review.push('lage betrouwbaarheid');
+  if (c.confidence === 'LOW') review.push(LOW_CONFIDENCE_REASON);
   const texts = [
     c.sparkFit,
     c.outreachAngle,
