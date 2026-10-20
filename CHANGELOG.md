@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Een verlopen sessie in een tabblad dat lang openstond gaf alleen "Er ging iets mis. Probeer het opnieuw." op een verder gewone pagina. De pagina controleerde de inlogstatus maar één keer (bij het openen), terwijl de eigen sessie van de app na 8 uur inactiviteit (12 uur absoluut) verloopt, los van de Microsoft-sessie. Nu stuurt elke API-aanroep die een 401 krijgt naar de inlogpagina met de melding "Je sessie is verlopen", en na het inloggen kom je terug op de pagina waar je was (alleen paden binnen de app, nooit de loginpagina zelf). Bij terugkeer naar een lang openstaand tabblad wordt de sessie bovendien meteen gecontroleerd (hoogstens eens per 5 minuten), zodat je niet pas bij de eerste klik een fout ziet.
+
 ### Changed
 
 - De onderzoeksprompt bevat een zoekstrategie op basis van eerdere runs: bedrijfsnamen via ledenlijsten van ondernemersverenigingen, industriekringen en bedrijventerreinen, branche- en MKB-magazines en lokaal ondernemersnieuws; geen vacature-aggregators, SEO-landingspagina's of platformen als Werkspot en Trustoo; en bedrijfsdatabases (Drimble, Gouden Gids) niet vertrouwen voor medewerkersaantallen maar de omvang bevestigen via de LinkedIn-bedrijfspagina, een team- of vacaturepagina of een persbericht. Aanleiding: het model gaf in meerdere runs zelf aan dat die bronnen betere, herleidbare bedrijven opleveren, en Drimble gaf herhaaldelijk een verkeerde omvang (1 tot 4 medewerkers).

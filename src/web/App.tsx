@@ -1,9 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { nl } from '../shared/i18n/nl';
-import { BASE, api, logoutRequest, setCsrfToken, type Me } from './api';
+import {
+  BASE,
+  api,
+  logoutRequest,
+  redirectToLogin,
+  setCsrfToken,
+  type ApiError,
+  type Me,
+} from './api';
 import { AnnounceContext, fmt, usePageTitle } from './lib';
 import { MeContext } from './me';
+import { safeReturn } from './session';
 import { ContentPage, SubmissionDetailPage } from './pages/Content';
 import { CustomerDetailPage, CustomersPage } from './pages/Customers';
 import { DashboardPage } from './pages/Dashboard';
@@ -15,8 +24,11 @@ import { SettingsPage } from './pages/Settings';
 import { TasksPage } from './pages/Tasks';
 
 function LoginPage() {
-  const denied = new URLSearchParams(useLocation().search).get('error') === 'denied';
-  const returnTo = encodeURIComponent(`${BASE}/dashboard`);
+  const params = new URLSearchParams(useLocation().search);
+  const denied = params.get('error') === 'denied';
+  const expired = params.get('expired') === '1';
+  // Na het inloggen terug naar de pagina waar je was (de server controleert dit nogmaals).
+  const returnTo = encodeURIComponent(safeReturn(BASE, params.get('returnTo')));
   usePageTitle(nl.login.title);
   return (
     <main className="center-page" id="main">
@@ -26,6 +38,11 @@ function LoginPage() {
         </div>
         <h1>{nl.login.title}</h1>
         <p className="muted">{nl.login.intro}</p>
+        {expired && !denied && (
+          <p className="alert alert--warn" role="status">
+            {nl.login.expired}
+          </p>
+        )}
         {denied && (
           <p className="alert" role="alert">
             {nl.login.denied}
@@ -143,6 +160,26 @@ export function App() {
       })
       .catch(() => setMe(null));
   }, []);
+
+  // Een tabblad dat lang openstond: bij terugkeer meteen controleren of de sessie nog geldig is, zodat je direct naar
+  // het inloggen gaat in plaats van pas bij de eerste klik een foutmelding te krijgen. Hoogstens eens per 5 minuten.
+  useEffect(() => {
+    if (!me) return;
+    let last = Date.now();
+    const check = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < 5 * 60_000) return;
+      last = Date.now();
+      api<Me>('/me').catch((e: ApiError) => {
+        if (e.status === 401) redirectToLogin();
+      });
+    };
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
+    return () => {
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('focus', check);
+    };
+  }, [me]);
 
   if (me === undefined) {
     return (

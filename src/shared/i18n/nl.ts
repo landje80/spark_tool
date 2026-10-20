@@ -18,6 +18,7 @@ export const nl = {
     intro: 'Log in met je Juvion Microsoft-account.',
     button: 'Inloggen met Microsoft',
     denied: 'Je account heeft geen toegang tot Spark Tool. Neem contact op met een beheerder.',
+    expired: 'Je sessie is verlopen. Log opnieuw in om verder te gaan waar je was.',
   },
   common: {
     loading: 'Laden…',
