@@ -47,7 +47,7 @@ De deploy-acties in Plesk (§2 hieronder) draaien tot die controle `npm run buil
    sudo -u <plesk-systeemgebruiker> env PATH=/opt/plesk/node/21/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npm run db:migrate
    sudo -u <plesk-systeemgebruiker> env PATH=/opt/plesk/node/21/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npm run build:server
    ```
-   Daarna "App opnieuw opstarten" in het Node.js-paneel. (Geen `npm run verify` en geen `npm run build:web`/`npm run build` hier — zie "Node-versie" hierboven; `dist/web/` komt al gebouwd mee via Git.)
+   Heeft een deploy alleen codewijzigingen (geen nieuwe pakketten) dan volstaat het korte pad: `npm run db:migrate` (alleen als er een nieuwe migratie is) en `npm run build:server`; dat laatste genereert sinds kort zelf de Prisma-client, dus een schemawijziging geeft geen "does not exist in type"-fout meer. Voer `npm ci --ignore-scripts` + `npm run postinstall` uit zodra `package.json` of `package-lock.json` is gewijzigd. Daarna "App opnieuw opstarten" in het Node.js-paneel. (Geen `npm run verify` en geen `npm run build:web`/`npm run build` hier — zie "Node-versie" hierboven; `dist/web/` komt al gebouwd mee via Git.)
 4. `npm run healthcheck` moet slagen.
 
 ### Waarom `--ignore-scripts` + losse `postinstall`?

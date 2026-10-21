@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `npm run build:server` genereert nu eerst de Prisma-client (`prisma generate && tsc …`). Na de eerste schemawijziging sinds de uitrol (kolom `EmailMessage.textBody`) faalde `build:server` op de server met "'textBody' does not exist in type …" (TS2353): de gegenereerde client was nog die van vóór de wijziging, omdat `npm ci` (met `--ignore-scripts`) en dus `postinstall` niet opnieuw draaiden. Het uitrolhandboek noemde `npm run postinstall` wel, maar de korte werkwijze (pull, migreren, bouwen) sloeg die stap over; die gaat nu vanzelf goed.
+
 ### Added
 
 - Een kopie van elke verzonden outreach-mail op de prospectkaart onder "Verzonden e-mails" ("Bekijk de verzonden mail": van, aan, onderwerp en de volledige tekst). Eerder bewaarde `EmailMessage` alleen de onderwerpregel. De exacte tekst (inclusief voettekst en afmeldlink) wordt nu bij het verzenden vastgelegd in de nieuwe kolom `EmailMessage.textBody` (migratie `20261020120000_email_text_body`, vóór het verzenden, dus ook als de registratie erna mislukt). Mails van vóór deze kolom tonen de tekst van het bijbehorende concept met de melding dat de voettekst en afmeldlink ontbreken.
