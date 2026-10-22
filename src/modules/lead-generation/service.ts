@@ -90,10 +90,21 @@ export async function spentToday(
   return Number(agg._sum.estimatedCostUsd ?? 0);
 }
 
-/** Kiest het zoekgebied met de minste prospects per plaats (bij gelijkspel het eerste), zodat de dekking rouleert. */
-export async function pickRing(db: PrismaClient): Promise<readonly string[]> {
+/**
+ * Kiest het zoekgebied met de minste prospects per plaats (bij gelijkspel het eerste), maar nooit een gebied
+ * waarin een van de laatste runs (`recent`) al zocht. Zonder die uitsluiting blijft het gebied met de meeste
+ * micro-bedrijven en ketens (weinig prospects, dus steeds het minst gevuld) steeds de gekozen plek: op 21 okt
+ * zochten vier van de vijf runs in Zwolle en omgeving.
+ */
+export async function pickRing(
+  db: PrismaClient,
+  recent: readonly (readonly string[])[] = [],
+): Promise<readonly string[]> {
+  const skip = new Set(recent.map((r) => r.join('|')));
+  const candidates = SEARCH_RINGS.filter((r) => !skip.has(r.join('|')));
   let best: { ring: readonly string[]; perPlace: number } | null = null;
-  for (const ring of SEARCH_RINGS) {
+  // Blijven er geen gebieden over (meer recente runs dan gebieden), dan telt alleen de minste aanwezigheid.
+  for (const ring of candidates.length ? candidates : SEARCH_RINGS) {
     const existing = await db.prospect.count({
       where: { anonymizedAt: null, city: { in: [...ring] } },
     });
@@ -274,9 +285,10 @@ export const localYmd = (d: Date, tz: string): string => ymd(d, tz);
 
 /**
  * Beslist of na een afgeronde run een aanvul-run moet volgen en geeft dan het volgnummer terug (anders null).
- * Alleen als de laatste run leads opleverde (nul opbrengst stopt de keten), het dagdoel nog niet is gehaald, het
- * maximum aantal runs per dag niet is bereikt en een volgende run (geschat op de kosten van de laatste) het
- * dagbudget niet zou overschrijden.
+ * Opbrengst = toegevoegd + naar de reviewqueue gestuurd (ook dat zijn bruikbare kandidaten). De keten stopt pas
+ * na twee opeenvolgende runs zonder opbrengst (één run zonder niets is vaak pech: de volgende kiest een ander
+ * gebied en een andere branche), of zodra het dagdoel is gehaald, het maximum aantal runs per dag is bereikt of
+ * een volgende run (geschat op de kosten van de laatste) het dagbudget zou overschrijden.
  */
 export async function nextTopUpSeq(
   db: PrismaClient,
@@ -284,10 +296,19 @@ export async function nextTopUpSeq(
   now: Date,
   outcome: RunOutcome,
 ): Promise<number | null> {
-  if (outcome.status !== 'finished' || outcome.accepted === 0) return null;
+  if (outcome.status !== 'finished') return null;
   const since = startOfDay(now, config.timezone);
   const runsToday = await db.leadGenerationRun.count({ where: { startedAt: { gte: since } } });
   if (runsToday >= (config.maxRunsPerDay ?? 1)) return null;
+  const lastTwo = await db.leadGenerationRun.findMany({
+    where: { startedAt: { gte: since } },
+    orderBy: { startedAt: 'desc' },
+    take: 2,
+    select: { acceptedCount: true, reviewCount: true },
+  });
+  if (lastTwo.length === 2 && lastTwo.every((r) => r.acceptedCount + r.reviewCount === 0)) {
+    return null;
+  }
   const done = await db.leadGenerationRun.aggregate({
     where: { startedAt: { gte: since } },
     _sum: { acceptedCount: true },
@@ -363,9 +384,9 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
       const { blocked, overflow } = splitKnownDomains(
         known.map((k) => k.domain).filter((d): d is string => !!d),
       );
-      const ring = await pickRing(db);
       // De laatste runs (ook van eerder vandaag): hun notities zijn een compacte hint (wat is al afgevallen, wat
-      // is nog niet afgerond, wat het model zelf als vervolg aanbeval) en hun branche telt niet opnieuw mee.
+      // is nog niet afgerond, wat het model zelf als vervolg aanbeval) en hun branche en gebied tellen niet
+      // opnieuw mee.
       const previous = await db.leadGenerationRun.findMany({
         where: { id: { not: run.id }, status: { in: ['SUCCEEDED', 'PARTIAL'] } },
         orderBy: { startedAt: 'desc' },
@@ -373,7 +394,15 @@ export async function runLeadGeneration(deps: LeadGenDeps, opts: RunOpts): Promi
         select: { metadata: true },
       });
       const previousMeta = previous.map(
-        (r) => (r.metadata ?? null) as { notes?: unknown; focus?: unknown } | null,
+        (r) => (r.metadata ?? null) as { notes?: unknown; focus?: unknown; ring?: unknown } | null,
+      );
+      // Het gebied van de twee laatste runs (de lijst is al nieuwste eerst).
+      const ring = await pickRing(
+        db,
+        previousMeta
+          .slice(0, 2)
+          .map((m) => m?.ring)
+          .filter((r): r is string[] => Array.isArray(r) && r.every((c) => typeof c === 'string')),
       );
       const focus = await pickFocus(
         db,

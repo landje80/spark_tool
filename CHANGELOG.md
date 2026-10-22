@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Het zoekgebied van een leadrun rouleert nu ook echt: een gebied waarin een van de laatste twee runs zocht wordt overgeslagen. Aanleiding: het gebied met de minste prospects per plaats won steeds, maar dat was juist Zwolle en omgeving (veel micro-bedrijven en ketens, dus weinig prospects), zodat vier van de vijf runs van 21 okt daar zochten. Dit vertekende ook de vergelijking tussen Opus en Sonnet 5.
+- De aanvul-keten telt nu toegevoegd plus reviewqueue als opbrengst en stopt pas na twee opeenvolgende runs zonder opbrengst (eerder: na één run zonder toegevoegde leads). Aanleiding: een run van 21 okt (0 toegevoegd, 3 in de reviewqueue) stopte de keten terwijl sinds lage betrouwbaarheid naar de reviewqueue gaat zulke kandidaten juist het resultaat zijn; één run zonder niets is bovendien vaak pech (de volgende kiest een ander gebied en een andere branche). Begrensd door `LEAD_GENERATION_MAX_RUNS_PER_DAY` en het dagbudget.
+
 ### Fixed
 
 - `npm run build:server` genereert nu eerst de Prisma-client (`prisma generate && tsc …`). Na de eerste schemawijziging sinds de uitrol (kolom `EmailMessage.textBody`) faalde `build:server` op de server met "'textBody' does not exist in type …" (TS2353): de gegenereerde client was nog die van vóór de wijziging, omdat `npm ci` (met `--ignore-scripts`) en dus `postinstall` niet opnieuw draaiden. Het uitrolhandboek noemde `npm run postinstall` wel, maar de korte werkwijze (pull, migreren, bouwen) sloeg die stap over; die gaat nu vanzelf goed.

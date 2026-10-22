@@ -131,16 +131,63 @@ describe('dagelijkse leadgeneratie', () => {
     expect(await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3, dailyTarget: 2 }), NOW, out)).toBeNull();
     // Een volgende run (geschat op de kosten van de laatste) zou het dagbudget overschrijden.
     expect(await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3, maxDailyCost: 1 }), NOW, out)).toBeNull();
-    // Geen opbrengst: de keten stopt.
-    expect(
-      await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3 }), NOW, { ...out, accepted: 0 }),
-    ).toBeNull();
     expect(
       await nextTopUpSeq(db, cfg({ maxRunsPerDay: 3 }), NOW, {
         status: 'skipped',
         reason: 'x',
       } as never),
     ).toBeNull();
+  });
+
+  it('telt de reviewqueue mee als opbrengst en stopt pas na twee opeenvolgende lege runs', async () => {
+    const cfg: LeadGenConfig = { ...config, maxRunsPerDay: 5 };
+    const at = (min: number) => ({
+      ...deps(new MockLeadClient([])),
+      now: () => new Date(NOW.getTime() + min * 60_000),
+    });
+
+    // Run 1: niets toegevoegd, maar een kandidaat in de reviewqueue (lage betrouwbaarheid) = opbrengst.
+    const laag = candidate({
+      name: 'Twijfel BV',
+      domain: 'installatievos.nl',
+      linkedin: 'https://www.linkedin.com/company/installatie-vos',
+      confidence: 'LOW',
+    });
+    const first = await runLeadGeneration(
+      { ...deps(new MockLeadClient([laag])), now: () => new Date(NOW.getTime()) },
+      { trigger: 'manual' },
+    );
+    if (first.status !== 'finished') throw new Error('verwacht een afgeronde run');
+    expect(first).toMatchObject({ accepted: 0, review: 1 });
+    expect(await nextTopUpSeq(db, cfg, NOW, first)).toBe(2);
+
+    // Run 2: helemaal niets. Eén lege run (met een opbrengende ervoor) laat de keten doorlopen...
+    const second = await runLeadGeneration(at(1), { trigger: 'manual' });
+    if (second.status !== 'finished') throw new Error('verwacht een afgeronde run');
+    expect(second).toMatchObject({ accepted: 0, review: 0 });
+    expect(await nextTopUpSeq(db, cfg, new Date(NOW.getTime() + 60_000), second)).toBe(3);
+
+    // Run 3: weer niets. Twee lege runs achter elkaar: de keten stopt.
+    const third = await runLeadGeneration(at(2), { trigger: 'manual' });
+    if (third.status !== 'finished') throw new Error('verwacht een afgeronde run');
+    expect(await nextTopUpSeq(db, cfg, new Date(NOW.getTime() + 120_000), third)).toBeNull();
+  });
+
+  it('rouleert ook het zoekgebied: een gebied van de laatste twee runs wordt overgeslagen en bewaard', async () => {
+    const ringOf = (c: MockLeadClient) =>
+      /deze plaatsen: ([^.]+)\./.exec(c.researchCalls[0]!.user)?.[1]?.split(',')[0]?.trim();
+    const starts: (string | undefined)[] = [];
+    for (let i = 0; i < 4; i++) {
+      const client = new MockLeadClient([]);
+      await runLeadGeneration(
+        { ...deps(client), now: () => new Date(NOW.getTime() + i * 60_000) },
+        { trigger: 'manual' },
+      );
+      starts.push(ringOf(client));
+    }
+    // Leeg CRM: zonder uitsluiting zou steeds het eerste gebied (Zwolle) winnen. Nu volgt het tweede en derde
+    // gebied, en pas daarna mag het eerste weer.
+    expect(starts).toEqual(['Zwolle', 'Deventer', 'Steenwijk', 'Zwolle']);
   });
 
   it('geeft een aanvul-run alleen het resterende dagdoel en is idempotent per volgnummer', async () => {

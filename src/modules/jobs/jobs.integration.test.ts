@@ -253,9 +253,10 @@ describe('aanvul-runs voor leadgeneratie', () => {
       orderBy: { dedupeKey: 'asc' },
     });
 
-  it('plant na een run met resultaat een aanvul-run in en stopt zodra een run niets oplevert', async () => {
+  it('plant na een run met resultaat een aanvul-run in', async () => {
     await run({ LEAD_GENERATION_MAX_RUNS_PER_DAY: '4' }, { trigger: 'daily' });
-    // Run 1 levert de Zwaan op (1 lead) → aanvul-run 2; die vindt alleen een dubbele (0 leads) → geen run 3.
+    // Run 1 levert de Zwaan op (1 lead) → aanvul-run 2 wordt ingepland (de beslislogica zelf, inclusief het stoppen
+    // na twee lege runs, staat in lead-generation.integration.test.ts).
     expect((await topups()).map((j) => j.dedupeKey)).toEqual(['topup-2026-09-21-2']);
     expect(await db.prospect.count()).toBe(1);
   });
